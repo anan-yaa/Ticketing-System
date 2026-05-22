@@ -574,8 +574,8 @@ export const CustomerTicketPortal: React.FC = () => {
       {selectedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 bg-black/70 backdrop-blur-md">
           <div className="bg-slate-900/90 border border-white/10 rounded-[2rem] w-full max-w-5xl h-[85vh] flex flex-col md:flex-row shadow-[0_20px_70px_rgba(0,0,0,0.8)] overflow-hidden animate-in zoom-in-95 duration-300">
-            {/* Left Meta Details Pane — fixed at 65% */}
-            <div className="w-full md:w-[65%] md:max-w-[65%] md:shrink-0 bg-black/40 border-r border-white/5 p-8 flex flex-col overflow-y-auto">
+            {/* Left Meta Details Pane — fixed at 70% */}
+            <div className="w-full md:w-[70%] md:max-w-[70%] md:shrink-0 bg-black/40 border-r border-white/5 p-8 flex flex-col overflow-y-auto">
               <div className="flex justify-between items-start mb-6">
                 <span className={`px-3 py-1 text-[10px] font-black tracking-widest uppercase rounded-lg border ${getStatusGlow(selectedTicket.status)}`}>
                   {selectedTicket.status}
@@ -624,8 +624,8 @@ export const CustomerTicketPortal: React.FC = () => {
               </div>
             </div>
 
-            {/* Right Comments Timeline Pane — fixed at 35% */}
-            <div className="w-full md:w-[35%] md:max-w-[35%] md:shrink-0 flex flex-col bg-slate-950/40 relative border-l border-white/5">
+            {/* Right Comments Timeline Pane — fixed at 30% */}
+            <div className="w-full md:w-[30%] md:max-w-[30%] md:shrink-0 flex flex-col bg-slate-950/40 relative border-l border-white/5">
               <div className="flex-1 overflow-y-auto p-8 space-y-6 pb-24">
                 <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest block border-b border-white/5 pb-2">
                   Ticket Audit Log

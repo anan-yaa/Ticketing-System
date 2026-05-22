@@ -659,8 +659,8 @@ export const AdminTicketsQueue: React.FC = () => {
               ✕
             </button>
 
-            {/* Left Meta Details Pane */}
-            <div className="w-full md:w-1/3 bg-black/40 border-r border-white/5 p-8 flex flex-col overflow-y-auto">
+            {/* Left Meta Details Pane — fixed at 70% */}
+            <div className="w-full md:w-[70%] md:max-w-[70%] md:shrink-0 bg-black/40 border-r border-white/5 p-8 flex flex-col overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
                   <span className={`px-3 py-1 text-[10px] font-black tracking-widest uppercase rounded-lg border ${statusColor(selectedTicket.status)}`}>
@@ -734,8 +734,8 @@ export const AdminTicketsQueue: React.FC = () => {
 
             </div>
 
-            {/* Right Comments Timeline Pane */}
-            <div className="w-full md:w-2/3 flex flex-col bg-slate-950/40 relative">
+            {/* Right Comments Timeline Pane — fixed at 30% */}
+            <div className="w-full md:w-[30%] md:max-w-[30%] md:shrink-0 flex flex-col bg-slate-950/40 relative">
               <div className="flex-1 overflow-y-auto pr-2 p-8 space-y-6">
 
                 {/* Display Core telemetry if populated */}
