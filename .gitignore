@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Production/Build outputs
+dist/
+**/dist/
+build/
+**/build/
+out/
+.next/
+.nuxt/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.env.*
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Database & SQLite files (Local Development)
+*.db
+*.db-journal
+*.sqlite
+dev.db
+dev.db-journal
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+
+# OS & System files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+html-report/
+
+# Package Manager Cache
+.npm/
+.yarn-cache/
+.pnpm-store/

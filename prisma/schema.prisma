@@ -1,0 +1,200 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SystemRole {
+  SUPER_ADMIN
+  ADMIN
+  CUSTOMER
+  L1_ENGINEER
+  L2_ENGINEER
+  L3_ENGINEER
+  MANAGER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING
+  WAITING
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  systemRole   SystemRole @default(CUSTOMER) @map("role")
+  status       UserStatus @default(ACTIVE)
+  mustChangePassword Boolean @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  // Dynamic Custom Roles relation
+  roleId       String?
+  role         Role?      @relation(fields: [roleId], references: [id])
+
+  // Relations
+  tickets      Ticket[]   @relation("TicketCustomerRelation")
+  ownedTickets Ticket[]   @relation("TicketOwnerRelation")
+  auditLogs    AuditLog[]
+  comments     Comment[]
+
+  @@index([email])
+  @@index([systemRole])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(false)
+
+  users       User[]
+  permissions RolePermission[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  label       String
+  module      String
+
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  id            String @id @default(cuid())
+
+  roleId        String
+  permissionId  String
+
+  role          Role @relation(fields: [roleId], references: [id])
+  permission    Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+}
+
+model Ticket {
+  id               String         @id @default(uuid())
+  ticketSeq        Int            @unique @default(autoincrement())
+  title            String
+  description      String
+  status           TicketStatus
+  priority         TicketPriority
+  category         String?
+  source           String         @default("PORTAL")
+  customerId       String
+  customer         User           @relation("TicketCustomerRelation", fields: [customerId], references: [id])
+  ticketOwnerId    String?
+  ticketOwner      User?          @relation("TicketOwnerRelation", fields: [ticketOwnerId], references: [id])
+  slaDeadline      DateTime
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  comments         Comment[]
+
+  // Optional extended telemetry fields
+  ticketType       String?
+  serviceContract  String?
+  firewallCategory String?
+  criticality      String?
+  customerName     String?
+  ticketSource     String?
+  timeSpentMin     Int?           @default(0)
+  isScopeInScope   Boolean?       @default(true)
+  affectedDevice   String?
+  deviceIp         String?
+  queueId          String?
+  slaId            String?
+  respondedAt      DateTime?
+  closedAt         DateTime?
+  isSlaBreached    Boolean?       @default(false)
+  ttfrDeadline         DateTime       @default(now())
+  resolutionDeadline   DateTime       @default(now())
+  firstRespondedAt     DateTime?
+  isTtfrBreached       Boolean        @default(false)
+  isResolutionBreached Boolean        @default(false)
+}
+
+model Comment {
+  id         String   @id @default(uuid())
+  content    String
+  isInternal Boolean  @default(false)
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model AuditLog {
+  id            String   @id @default(uuid()) // Or Int @id @default(autoincrement()) depending on preference, using UUID to be consistent with others
+  action        String
+  performedById String
+  performedBy   User     @relation(fields: [performedById], references: [id])
+  details       Json
+  createdAt     DateTime @default(now())
+}
+
+model MasterCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model MasterType {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ServiceContract {
+  id        String                  @id @default(uuid())
+  name      String                  @unique
+  isActive  Boolean                 @default(true)
+  queues    MasterAssignmentGroup[]
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
+}
+
+model MasterAssignmentGroup {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  serviceId   String?
+  service     ServiceContract? @relation(fields: [serviceId], references: [id])
+}
+
