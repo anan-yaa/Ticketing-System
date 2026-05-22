@@ -731,30 +731,32 @@ export const AdminTicketsQueue: React.FC = () => {
               {/* SLA & Health Telemetry Widget Grid */}
               <SlaHealthTelemetry ticket={selectedTicket} />
 
-              {/* Display Core telemetry if populated */}
-              {selectedTicket.ticketType && (
-                <div className="mt-6 border-t border-white/5 pt-6 space-y-3">
-                  <span className="text-[10px] text-cyan-400 font-mono uppercase tracking-widest block font-bold">Telemetry Core Data</span>
-                  <div className="grid grid-cols-1 gap-2 text-xs font-mono text-slate-300">
-                    <div className="bg-white/5 p-2 rounded-lg border border-white/5"><span className="text-slate-500">TYPE:</span> {selectedTicket.ticketType}</div>
-                    <div className="bg-white/5 p-2 rounded-lg border border-white/5"><span className="text-slate-500">QUEUE:</span> {selectedTicket.queueId || 'N/A'}</div>
-                    <div className="bg-white/5 p-2 rounded-lg border border-white/5"><span className="text-slate-500">CATEGORIES:</span> {selectedTicket.firewallCategory || 'N/A'}</div>
-                    <div className="bg-white/5 p-2 rounded-lg border border-white/5"><span className="text-slate-500">CONTRACT:</span> {selectedTicket.serviceContract || 'N/A'}</div>
-                    <div className="bg-white/5 p-2 rounded-lg border border-white/5"><span className="text-slate-500">SCOPE:</span> {selectedTicket.isScopeInScope ? 'IN-SCOPE' : 'OUT-OF-SCOPE'}</div>
-                    <div className="bg-white/5 p-2 rounded-lg border border-white/5"><span className="text-slate-500">AFFECTED DEVICE:</span> {selectedTicket.affectedDevice || 'N/A'}</div>
-                    <div className="bg-white/5 p-2 rounded-lg border border-white/5"><span className="text-slate-500">DEVICE IP:</span> {selectedTicket.deviceIp || 'N/A'}</div>
-                    <div className="bg-white/5 p-2 rounded-lg border border-white/5"><span className="text-slate-500">OWNER:</span> {selectedTicket.ticketOwner?.name || 'Unassigned'}</div>
-                  </div>
-                </div>
-              )}
 
             </div>
 
             {/* Right Comments Timeline Pane */}
             <div className="w-full md:w-2/3 flex flex-col bg-slate-950/40 relative">
-              <div className="flex-1 overflow-y-auto p-8 space-y-6">
+              <div className="flex-1 overflow-y-auto pr-2 p-8 space-y-6">
+
+                {/* Display Core telemetry if populated */}
+                {selectedTicket.ticketType && (
+                  <div className="border-b border-white/5 pb-6 space-y-3">
+                    <span className="text-[10px] text-cyan-400 font-mono uppercase tracking-widest block font-bold">Telemetry Core Data</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono text-slate-300">
+                      <div className="bg-white/5 p-3 rounded-xl border border-white/5"><span className="text-slate-500 font-semibold block text-[10px] mb-1">TYPE</span> {selectedTicket.ticketType}</div>
+                      <div className="bg-white/5 p-3 rounded-xl border border-white/5"><span className="text-slate-500 font-semibold block text-[10px] mb-1">QUEUE</span> {selectedTicket.queueId || 'N/A'}</div>
+                      <div className="bg-white/5 p-3 rounded-xl border border-white/5"><span className="text-slate-500 font-semibold block text-[10px] mb-1">CATEGORIES</span> {selectedTicket.firewallCategory || 'N/A'}</div>
+                      <div className="bg-white/5 p-3 rounded-xl border border-white/5"><span className="text-slate-500 font-semibold block text-[10px] mb-1">CONTRACT</span> {selectedTicket.serviceContract || 'N/A'}</div>
+                      <div className="bg-white/5 p-3 rounded-xl border border-white/5"><span className="text-slate-500 font-semibold block text-[10px] mb-1">SCOPE</span> {selectedTicket.isScopeInScope ? 'IN-SCOPE' : 'OUT-OF-SCOPE'}</div>
+                      <div className="bg-white/5 p-3 rounded-xl border border-white/5"><span className="text-slate-500 font-semibold block text-[10px] mb-1">AFFECTED DEVICE</span> {selectedTicket.affectedDevice || 'N/A'}</div>
+                      <div className="bg-white/5 p-3 rounded-xl border border-white/5"><span className="text-slate-500 font-semibold block text-[10px] mb-1">DEVICE IP</span> {selectedTicket.deviceIp || 'N/A'}</div>
+                      <div className="bg-white/5 p-3 rounded-xl border border-white/5"><span className="text-slate-500 font-semibold block text-[10px] mb-1">OWNER</span> {selectedTicket.ticketOwner?.name || 'Unassigned'}</div>
+                    </div>
+                  </div>
+                )}
+
                 <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest block border-b border-white/5 pb-2">
-                  TRANSMISSIONS CHRONOLOGY
+                  Ticket Audit Log
                 </span>
 
                 {(!selectedTicket.comments || selectedTicket.comments.length === 0) ? (
@@ -794,12 +796,12 @@ export const AdminTicketsQueue: React.FC = () => {
                 COMMUNICATION LOG ARCHIVED
               </div>
 
-              {/* Relocated Add Core Data Button */}
+              {/* Permanent Floating Add Core Data Button */}
               {isCoreDataNull && (
                 <PermissionGate permission="TICKET_CORE_DATA_UPDATE">
                   <button
                     onClick={openCoreDataForm}
-                    className="absolute bottom-3 right-4 py-2.5 px-4 bg-cyan-600/20 border border-cyan-500/50 hover:bg-cyan-500 text-cyan-300 hover:text-white font-bold rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.2)] hover:shadow-[0_0_25px_rgba(6,182,212,0.6)] uppercase tracking-widest text-[9px] tracking-widest text-center"
+                    className="absolute bottom-6 right-6 z-40 py-2.5 px-4 bg-slate-900/90 border border-cyan-500/50 hover:bg-cyan-500 text-cyan-300 hover:text-white font-bold rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.25)] hover:shadow-[0_0_25px_rgba(6,182,212,0.6)] uppercase tracking-widest text-[9px] tracking-widest text-center backdrop-blur-sm"
                   >
                     + Add Core Data
                   </button>

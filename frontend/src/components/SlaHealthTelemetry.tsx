@@ -6,15 +6,12 @@ interface SlaHealthTelemetryProps {
 }
 
 export const SlaHealthTelemetry: React.FC<SlaHealthTelemetryProps> = ({ ticket }) => {
-  const { timeString: ttfrCount } = useCountDown(
-    ticket.ttfrDeadline,
-    ticket.createdAt
-  );
+  const ttfrCountdown = useCountDown(ticket.ttfrDeadline, ticket.createdAt);
+  const resolutionCountdown = useCountDown(ticket.resolutionDeadline, ticket.createdAt);
 
-  const { timeString: resolutionCount, percentRemaining: resolutionPercent } = useCountDown(
-    ticket.resolutionDeadline,
-    ticket.createdAt
-  );
+  const ttfrCount = ttfrCountdown.timeString;
+  const resolutionCount = resolutionCountdown.timeString;
+  const resolutionPercent = resolutionCountdown.percentRemaining;
 
   // Time to First Response (TTFR) compliance state checking
   const isPendingResponse = ticket.status === 'OPEN';

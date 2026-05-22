@@ -191,10 +191,10 @@ export const CustomerTicketPortal: React.FC = () => {
     if (status === 'CLOSED') return { text: 'Resolved', color: 'text-slate-500' };
     const total = Date.parse(deadlineDate) - Date.now();
     if (total <= 0) return { text: 'SLA Breached', color: 'text-rose-400 drop-shadow-[0_0_8px_rgba(251,113,133,0.8)]' };
-    
+
     const hours = Math.floor((total / (1000 * 60 * 60)) % 24);
     const minutes = Math.floor((total / 1000 / 60) % 60);
-    
+
     if (hours < 1) return { text: `${minutes}m left`, color: 'text-orange-400 animate-pulse drop-shadow-[0_0_8px_rgba(251,146,60,0.8)]' };
     return { text: `${hours}h ${minutes}m left`, color: 'text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]' };
   };
@@ -234,7 +234,7 @@ export const CustomerTicketPortal: React.FC = () => {
       t.title.toLowerCase().includes(search.toLowerCase()) ||
       t.id.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'ALL' || t.status === statusFilter;
-    const matchesPriority = priorityFilter === 'ALL' || 
+    const matchesPriority = priorityFilter === 'ALL' ||
       (priorityFilter === 'CRITICAL' ? t.priority === 'URGENT' : t.priority === priorityFilter);
     return matchesSearch && matchesStatus && matchesPriority;
   });
@@ -279,7 +279,7 @@ export const CustomerTicketPortal: React.FC = () => {
 
       {/* Primary Dashboard Container */}
       <div className="flex-1 overflow-y-auto p-8 max-w-7xl w-full mx-auto space-y-8 pb-16">
-        
+
         {/* Welcome & Stats Section */}
         <section className="flex flex-col gap-6">
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
@@ -348,7 +348,7 @@ export const CustomerTicketPortal: React.FC = () => {
                   onChange={(e) => setSearch(e.target.value)}
                   className="px-4 py-2 bg-black/40 border border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 text-white outline-none text-xs font-mono placeholder-slate-700 w-52 uppercase tracking-wide"
                 />
-                
+
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
@@ -378,7 +378,7 @@ export const CustomerTicketPortal: React.FC = () => {
 
           {/* ACTIVE TAB CONTAINER */}
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 md:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.5)] min-h-[400px] flex flex-col">
-            
+
             {/* MY TICKETS TAB */}
             {activeTab === 'my-tickets' && (
               <div className="flex-1 flex flex-col">
@@ -574,9 +574,8 @@ export const CustomerTicketPortal: React.FC = () => {
       {selectedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 bg-black/70 backdrop-blur-md">
           <div className="bg-slate-900/90 border border-white/10 rounded-[2rem] w-full max-w-5xl h-[85vh] flex flex-col md:flex-row shadow-[0_20px_70px_rgba(0,0,0,0.8)] overflow-hidden animate-in zoom-in-95 duration-300">
-            
-            {/* Left Meta Details Pane */}
-            <div className="w-full md:w-1/3 bg-black/40 border-r border-white/5 p-8 flex flex-col overflow-y-auto">
+            {/* Left Meta Details Pane — fixed at 65% */}
+            <div className="w-full md:w-[65%] md:max-w-[65%] md:shrink-0 bg-black/40 border-r border-white/5 p-8 flex flex-col overflow-y-auto">
               <div className="flex justify-between items-start mb-6">
                 <span className={`px-3 py-1 text-[10px] font-black tracking-widest uppercase rounded-lg border ${getStatusGlow(selectedTicket.status)}`}>
                   {selectedTicket.status}
@@ -588,15 +587,15 @@ export const CustomerTicketPortal: React.FC = () => {
                   ✕
                 </button>
               </div>
-              
+
               <h2 className="text-xl font-bold text-white mb-2 leading-tight uppercase font-mono tracking-wide">
                 {selectedTicket.id}
               </h2>
               <h3 className="text-lg font-semibold text-slate-300 mb-6 leading-tight">
                 {selectedTicket.title}
               </h3>
-              
-              <div className="bg-white/5 border border-white/5 rounded-xl p-4 flex-grow mb-6 max-h-48 overflow-y-auto">
+
+              <div className="bg-white/5 border border-white/5 rounded-xl p-4 mb-6 max-h-48 overflow-y-auto">
                 <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest block mb-2">Description</span>
                 <p className="text-slate-400 text-xs leading-relaxed whitespace-pre-wrap">{selectedTicket.description}</p>
               </div>
@@ -625,13 +624,13 @@ export const CustomerTicketPortal: React.FC = () => {
               </div>
             </div>
 
-            {/* Right Comments Timeline Pane */}
-            <div className="w-full md:w-2/3 flex flex-col bg-slate-950/40">
-              <div className="flex-1 overflow-y-auto p-8 space-y-6">
+            {/* Right Comments Timeline Pane — fixed at 35% */}
+            <div className="w-full md:w-[35%] md:max-w-[35%] md:shrink-0 flex flex-col bg-slate-950/40 relative border-l border-white/5">
+              <div className="flex-1 overflow-y-auto p-8 space-y-6 pb-24">
                 <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest block border-b border-white/5 pb-2">
-                  TRANSMISSIONS CHRONOLOGY
+                  Ticket Audit Log
                 </span>
-                
+
                 {selectedTicket.comments?.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-slate-600 font-mono text-xs tracking-widest uppercase">
                     No replies or logs on record
@@ -642,7 +641,7 @@ export const CustomerTicketPortal: React.FC = () => {
                       const isCustomer = comment.authorId === user?.id;
                       const authorName = comment.author?.name || 'USER';
                       const authorRole = comment.author?.role?.name || 'CUSTOMER';
-                      
+
                       return (
                         <div
                           key={comment.id}
@@ -712,8 +711,9 @@ export const CustomerTicketPortal: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
-    </div>
+      )
+      }
+    </div >
   );
 };
 

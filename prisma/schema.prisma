@@ -132,8 +132,8 @@ model Ticket {
   respondedAt      DateTime?
   closedAt         DateTime?
   isSlaBreached    Boolean?       @default(false)
-  ttfrDeadline         DateTime       @default(now())
-  resolutionDeadline   DateTime       @default(now())
+  ttfrDeadline         DateTime
+  resolutionDeadline   DateTime
   firstRespondedAt     DateTime?
   isTtfrBreached       Boolean        @default(false)
   isResolutionBreached Boolean        @default(false)

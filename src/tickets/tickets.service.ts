@@ -261,6 +261,34 @@ export class TicketsService {
       );
     }
 
+    let ttfrDeadline = ticket.ttfrDeadline;
+    let resolutionDeadline = ticket.resolutionDeadline;
+
+    if (isPriorityAltered) {
+      const activePriority = data.priority !== undefined ? data.priority : ticket.priority;
+      const priorityStr = String(activePriority);
+      let ttfrHours = 4;
+      let resolutionHours = 48;
+
+      if (priorityStr === 'P1' || activePriority === TicketPriority.URGENT) {
+        ttfrHours = 2;
+        resolutionHours = 4;
+      } else if (priorityStr === 'P2' || activePriority === TicketPriority.HIGH) {
+        ttfrHours = 2;
+        resolutionHours = 6;
+      } else if (priorityStr === 'P3' || activePriority === TicketPriority.MEDIUM) {
+        ttfrHours = 4;
+        resolutionHours = 12;
+      } else if (priorityStr === 'P4' || activePriority === TicketPriority.LOW) {
+        ttfrHours = 4;
+        resolutionHours = 48;
+      }
+
+      ttfrDeadline = new Date(new Date(ticket.createdAt).getTime() + ttfrHours * 60 * 60 * 1000);
+      resolutionDeadline = new Date(new Date(ticket.createdAt).getTime() + resolutionHours * 60 * 60 * 1000);
+      console.log(`[updateCoreData] Priority altered to ${activePriority}. TTFR hours: ${ttfrHours}, Resolution hours: ${resolutionHours}`);
+    }
+
     // Strip non-Prisma fields before writing to the database
     const { timeSpentTracking, status, ticketId: _tid, ...prismaData } = data as any;
     const timeSpentMin = timeSpentTracking !== undefined ? timeSpentTracking : data.timeSpentMin;
@@ -272,6 +300,8 @@ export class TicketsService {
           ...prismaData,
           ...(timeSpentMin !== undefined ? { timeSpentMin } : {}),
           slaDeadline,
+          ttfrDeadline,
+          resolutionDeadline,
         },
       });
       console.log('[updateCoreData] Update SUCCESS — seq:', ticket.ticketSeq);
