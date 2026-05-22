@@ -728,34 +728,8 @@ export const AdminTicketsQueue: React.FC = () => {
                 </div>
               </div>
 
-              {/* SLA & Health Telemetry Widget Grid */}
-              <SlaHealthTelemetry ticket={selectedTicket} />
-
-
-            </div>
-
-            {/* Right Comments Timeline Pane — fixed at 30% */}
-            <div className="w-full md:w-[30%] md:max-w-[30%] md:shrink-0 flex flex-col bg-slate-950/40 relative">
-              <div className="flex-1 overflow-y-auto pr-2 p-8 space-y-6">
-
-                {/* Display Core telemetry if populated */}
-                {selectedTicket.ticketType && (
-                  <div className="border-b border-white/5 pb-6 space-y-3">
-                    <span className="text-[10px] text-cyan-400 font-mono uppercase tracking-widest block font-bold">Telemetry Core Data</span>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono text-slate-300">
-                      <div className="bg-white/5 p-3 rounded-xl border border-white/5"><span className="text-slate-500 font-semibold block text-[10px] mb-1">TYPE</span> {selectedTicket.ticketType}</div>
-                      <div className="bg-white/5 p-3 rounded-xl border border-white/5"><span className="text-slate-500 font-semibold block text-[10px] mb-1">QUEUE</span> {selectedTicket.queueId || 'N/A'}</div>
-                      <div className="bg-white/5 p-3 rounded-xl border border-white/5"><span className="text-slate-500 font-semibold block text-[10px] mb-1">CATEGORIES</span> {selectedTicket.firewallCategory || 'N/A'}</div>
-                      <div className="bg-white/5 p-3 rounded-xl border border-white/5"><span className="text-slate-500 font-semibold block text-[10px] mb-1">CONTRACT</span> {selectedTicket.serviceContract || 'N/A'}</div>
-                      <div className="bg-white/5 p-3 rounded-xl border border-white/5"><span className="text-slate-500 font-semibold block text-[10px] mb-1">SCOPE</span> {selectedTicket.isScopeInScope ? 'IN-SCOPE' : 'OUT-OF-SCOPE'}</div>
-                      <div className="bg-white/5 p-3 rounded-xl border border-white/5"><span className="text-slate-500 font-semibold block text-[10px] mb-1">AFFECTED DEVICE</span> {selectedTicket.affectedDevice || 'N/A'}</div>
-                      <div className="bg-white/5 p-3 rounded-xl border border-white/5"><span className="text-slate-500 font-semibold block text-[10px] mb-1">DEVICE IP</span> {selectedTicket.deviceIp || 'N/A'}</div>
-                      <div className="bg-white/5 p-3 rounded-xl border border-white/5"><span className="text-slate-500 font-semibold block text-[10px] mb-1">OWNER</span> {selectedTicket.ticketOwner?.name || 'Unassigned'}</div>
-                    </div>
-                  </div>
-                )}
-
-                <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest block border-b border-white/5 pb-2">
+              <div className="border-t border-white/5 pt-6 mt-6">
+                <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest block border-b border-white/5 pb-2 mb-4">
                   Ticket Audit Log
                 </span>
 
@@ -790,23 +764,42 @@ export const AdminTicketsQueue: React.FC = () => {
                   </div>
                 )}
               </div>
+            </div>
 
-              {/* Read Only timeline message */}
-              <div className="p-6 bg-black/40 border-t border-white/5 text-center text-slate-500 font-mono text-[10px] uppercase tracking-widest">
-                COMMUNICATION LOG ARCHIVED
+            {/* Right Comments Timeline Pane — fixed at 30% */}
+            <div className="w-full md:w-[30%] md:max-w-[30%] md:shrink-0 flex flex-col bg-slate-950/40 relative">
+              <div className="flex-1 overflow-y-auto px-6 pt-12 pb-28 space-y-8">
+
+                {/* Display Core telemetry if populated */}
+                {selectedTicket.ticketType && (
+                  <div className="border-b border-white/5 pb-6 space-y-3">
+                    <span className="text-[10px] text-cyan-400 font-mono uppercase tracking-widest block font-bold">Telemetry Core Data</span>
+                    <div className="grid grid-cols-2 gap-4 pr-4 text-xs font-mono text-slate-300">
+                      <div className="p-4 flex flex-col justify-between h-20 bg-slate-900/50 border border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">TYPE</span> {selectedTicket.ticketType}</div>
+                      <div className="p-4 flex flex-col justify-between h-20 bg-slate-900/50 border border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">QUEUE</span> {selectedTicket.queueId || 'N/A'}</div>
+                      <div className="p-4 flex flex-col justify-between h-20 bg-slate-900/50 border border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">CATEGORIES</span> {selectedTicket.firewallCategory || 'N/A'}</div>
+                      <div className="p-4 flex flex-col justify-between h-20 bg-slate-900/50 border border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">CONTRACT</span> {selectedTicket.serviceContract || 'N/A'}</div>
+                      <div className="p-4 flex flex-col justify-between h-20 bg-slate-900/50 border border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">SCOPE</span> {selectedTicket.isScopeInScope ? 'IN-SCOPE' : 'OUT-OF-SCOPE'}</div>
+                      <div className="p-4 flex flex-col justify-between h-20 bg-slate-900/50 border border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">AFFECTED DEVICE</span> {selectedTicket.affectedDevice || 'N/A'}</div>
+                      <div className="p-4 flex flex-col justify-between h-20 bg-slate-900/50 border border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">DEVICE IP</span> {selectedTicket.deviceIp || 'N/A'}</div>
+                      <div className="p-4 flex flex-col justify-between h-20 bg-slate-900/50 border border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">OWNER</span> {selectedTicket.ticketOwner?.name || 'Unassigned'}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* SLA & Health Telemetry Widget Grid */}
+                <SlaHealthTelemetry ticket={selectedTicket} />
               </div>
 
               {/* Permanent Floating Add Core Data Button */}
-              {isCoreDataNull && (
-                <PermissionGate permission="TICKET_CORE_DATA_UPDATE">
-                  <button
-                    onClick={openCoreDataForm}
-                    className="absolute bottom-6 right-6 z-40 py-2.5 px-4 bg-slate-900/90 border border-cyan-500/50 hover:bg-cyan-500 text-cyan-300 hover:text-white font-bold rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.25)] hover:shadow-[0_0_25px_rgba(6,182,212,0.6)] uppercase tracking-widest text-[9px] tracking-widest text-center backdrop-blur-sm"
-                  >
-                    + Add Core Data
-                  </button>
-                </PermissionGate>
-              )}
+              <PermissionGate permission="TICKET_CORE_DATA_UPDATE">
+                <button
+                  onClick={openCoreDataForm}
+                  className="absolute bottom-6 right-6 z-40 py-2.5 px-4 bg-slate-900/90 border border-cyan-500/50 hover:bg-cyan-500 text-cyan-300 hover:text-white font-bold rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.25)] hover:shadow-[0_0_25px_rgba(6,182,212,0.6)] uppercase tracking-widest text-[9px] tracking-widest text-center backdrop-blur-sm"
+                >
+                  {!isCoreDataNull ? '✎ Edit Core Data' : '+ Add Core Data'}
+                </button>
+              </PermissionGate>
             </div>
           </div>
         </div>

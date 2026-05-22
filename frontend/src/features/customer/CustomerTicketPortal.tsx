@@ -626,8 +626,8 @@ export const CustomerTicketPortal: React.FC = () => {
 
             {/* Right Comments Timeline Pane — fixed at 30% */}
             <div className="w-full md:w-[30%] md:max-w-[30%] md:shrink-0 flex flex-col bg-slate-950/40 relative border-l border-white/5">
-              <div className="flex-1 overflow-y-auto p-8 space-y-6 pb-24">
-                <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest block border-b border-white/5 pb-2">
+              <div className="flex-1 overflow-y-auto px-6 py-8 space-y-6 pb-24">
+                <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest block border-b border-white/5 pb-2 mt-8 mb-4">
                   Ticket Audit Log
                 </span>
 
