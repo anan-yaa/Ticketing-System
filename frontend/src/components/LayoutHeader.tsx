@@ -43,7 +43,7 @@ export const LayoutHeader: React.FC = () => {
                 }`
               }
             >
-              <span className="text-[10px]">■</span> Dashboard
+              <span className="text-[20px]">■</span> Dashboard
             </NavLink>
           )}
 
@@ -57,7 +57,7 @@ export const LayoutHeader: React.FC = () => {
                 }`
               }
             >
-              <span className="text-[10px]">⇄</span> Tickets Queue
+              <span className="text-[20px]">⇄</span> Tickets Queue
             </NavLink>
           )}
 
@@ -70,7 +70,7 @@ export const LayoutHeader: React.FC = () => {
               }`
             }
           >
-            <span className="text-[10px]">⚙</span> {showSettings ? 'Admin Settings' : 'Settings'}
+            <span className="text-[20px]">⚙</span> {showSettings ? 'Admin Settings' : 'Settings'}
           </NavLink>
         </nav>
 

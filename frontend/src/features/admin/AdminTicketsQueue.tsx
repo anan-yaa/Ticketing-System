@@ -95,7 +95,7 @@ export const AdminTicketsQueue: React.FC = () => {
       });
       setSelectedTicket((prev) => prev ? { ...prev, comments: [...(prev.comments || []), res.data] } : prev);
       setReplyText('');
-      setToast({ message: isInternal ? 'Private note added' : 'Reply sent to customer', type: 'success' });
+      setToast({ message: isInternal ? 'Private note added' : 'Reply sent to User', type: 'success' });
     } catch (error) {
       console.error(error);
       setToast({ message: 'Failed to send message', type: 'error' });
@@ -104,14 +104,14 @@ export const AdminTicketsQueue: React.FC = () => {
 
   const handleDownloadPDF = () => {
     if (!selectedTicket) return;
-    
+
     try {
       const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4'
       });
-      
+
       const tableRows = (selectedTicket.comments || []).map((comment: any, index: number) => [
         `#${index + 1}`,
         new Date(comment.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }),
@@ -124,7 +124,7 @@ export const AdminTicketsQueue: React.FC = () => {
       doc.setFont('courier', 'normal');
       doc.setFontSize(14);
       doc.text("SUPER ADMIN PORTAL - AUTOMATED AUDIT TRAIL REPORT", 14, 20);
-      
+
       doc.setFontSize(10);
       doc.text(`Ticket ID Reference Sequence: ${selectedTicket.id}`, 14, 30);
       doc.text(`Current Lifecycle Operational Status: ${selectedTicket.status}`, 14, 35);
@@ -945,40 +945,40 @@ export const AdminTicketsQueue: React.FC = () => {
                           );
                         }
 
-                      const isRightAligned = cType === 'AGENT_REPLY';
-                      const isInternalNote = cType === 'INTERNAL_NOTE';
+                        const isRightAligned = cType === 'AGENT_REPLY';
+                        const isInternalNote = cType === 'INTERNAL_NOTE';
 
-                      let alignmentClass = 'items-start';
-                      let bubbleClass = 'bg-white/5 border-white/10 text-slate-300 rounded-tl-sm'; // Default CLIENT_REPLY
-                      
-                      if (isRightAligned) {
-                        alignmentClass = 'ml-auto items-end';
-                        bubbleClass = 'bg-cyan-900/10 border-cyan-500/20 text-cyan-50 rounded-tr-sm shadow-[0_0_15px_rgba(6,182,212,0.08)]';
-                      } else if (isInternalNote) {
-                        alignmentClass = 'items-start';
-                        bubbleClass = 'bg-amber-500/5 border-amber-500/20 text-amber-100 rounded-tl-sm';
-                      }
+                        let alignmentClass = 'items-start';
+                        let bubbleClass = 'bg-white/5 border-white/10 text-slate-300 rounded-tl-sm'; // Default CLIENT_REPLY
 
-                      return (
-                        <div key={comment.id} className={`flex flex-col max-w-[85%] ${alignmentClass}`}>
-                          <div className="flex items-center gap-2 mb-1.5 font-mono text-[9px] text-slate-500 tracking-wider">
-                            <span className="text-[10px] font-mono text-cyan-400 font-bold px-1.5 py-0.5 bg-cyan-500/10 rounded">
-                              [ #{trackingNumber} ]
-                            </span>
-                            <span className="uppercase text-slate-400 font-semibold">{authorName}</span>
-                            <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 uppercase scale-90">{authorRole}</span>
-                            {isInternalNote && <span className="text-amber-500 font-bold">[INTERNAL NOTE]</span>}
-                            <span>•</span>
-                            <span>{new Date(comment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        if (isRightAligned) {
+                          alignmentClass = 'ml-auto items-end';
+                          bubbleClass = 'bg-cyan-900/10 border-cyan-500/20 text-cyan-50 rounded-tr-sm shadow-[0_0_15px_rgba(6,182,212,0.08)]';
+                        } else if (isInternalNote) {
+                          alignmentClass = 'items-start';
+                          bubbleClass = 'bg-amber-500/5 border-amber-500/20 text-amber-100 rounded-tl-sm';
+                        }
+
+                        return (
+                          <div key={comment.id} className={`flex flex-col max-w-[85%] ${alignmentClass}`}>
+                            <div className="flex items-center gap-2 mb-1.5 font-mono text-[9px] text-slate-500 tracking-wider">
+                              <span className="text-[10px] font-mono text-cyan-400 font-bold px-1.5 py-0.5 bg-cyan-500/10 rounded">
+                                [ #{trackingNumber} ]
+                              </span>
+                              <span className="uppercase text-slate-400 font-semibold">{authorName}</span>
+                              <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 uppercase scale-90">{authorRole}</span>
+                              {isInternalNote && <span className="text-amber-500 font-bold">[INTERNAL NOTE]</span>}
+                              <span>•</span>
+                              <span>{new Date(comment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                            <div className={`px-5 py-3 rounded-2xl text-xs leading-relaxed border ${bubbleClass}`}>
+                              {comment.content}
+                            </div>
                           </div>
-                          <div className={`px-5 py-3 rounded-2xl text-xs leading-relaxed border ${bubbleClass}`}>
-                            {comment.content}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* DUAL-ACTION SUBMISSION FORM TOOLBAR */}
@@ -996,14 +996,14 @@ export const AdminTicketsQueue: React.FC = () => {
                       disabled={!replyText.trim()}
                       className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 text-[10px] font-mono font-bold uppercase tracking-widest rounded-lg transition-all disabled:opacity-50 flex items-center gap-2"
                     >
-                      <span>🔒</span> Add Private Note
+                      <span>🔒</span> Add Note
                     </button>
                     <button
                       onClick={() => submitMessage(false)}
                       disabled={!replyText.trim()}
                       className="px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-[10px] font-mono font-bold uppercase tracking-widest rounded-lg transition-all disabled:opacity-50 flex items-center gap-2"
                     >
-                      <span>✉</span> Reply to Customer
+                      <span>✉</span> Reply to User
                     </button>
                   </div>
                 </div>
@@ -1038,7 +1038,7 @@ export const AdminTicketsQueue: React.FC = () => {
                 <div className="bg-black/30 border border-white/5 rounded-2xl p-6 shadow-[0_4px_30px_rgba(0,0,0,0.3)] mt-6 backdrop-blur-md transition-all hover:bg-black/40">
                   <h3 className="text-cyan-400 font-mono text-[10px] font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"></span>
-                    Attachment Uplink
+                    Attachment Upload
                   </h3>
 
                   <div
@@ -1065,11 +1065,42 @@ export const AdminTicketsQueue: React.FC = () => {
                         <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-3 group-hover:bg-cyan-500/10 group-hover:border-cyan-500/30 transition-all">
                           <span className="text-slate-400 group-hover:text-cyan-400 text-lg">↑</span>
                         </div>
-                        <span className="text-xs font-mono text-slate-300 group-hover:text-white transition-colors">Click to transmit diagnostic files</span>
-                        <span className="text-[9px] font-mono text-slate-500 mt-2 uppercase tracking-widest">Logs, PCAPs, or Visuals</span>
+                        <span className="text-xs font-mono text-slate-300 group-hover:text-white transition-colors">Click to add attachments</span>
+                        <span className="text-[9px] font-mono text-slate-500 mt-2 uppercase tracking-widest">Logs or Visuals</span>
                       </>
                     )}
                   </div>
+                </div>
+
+                {/* 📎 ATTACHMENTS SECTION */}
+                <div className="bg-black/30 border border-white/5 rounded-2xl p-6 shadow-[0_4px_30px_rgba(0,0,0,0.3)] mt-6 backdrop-blur-md transition-all hover:bg-black/40">
+                  <h3 className="text-cyan-400 font-mono text-[10px] font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"></span>
+                    📎 ATTACHMENTS
+                  </h3>
+                  {(!selectedTicket.attachments || selectedTicket.attachments.length === 0) ? (
+                    <p className="text-xs font-mono text-slate-500 italic">No files uploaded to this ticket yet.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {selectedTicket.attachments.map((file: any) => (
+                        <div key={file.id} className="bg-slate-900 border border-white/10 rounded-xl p-3 flex justify-between items-center hover:border-cyan-500/50 transition-colors">
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="text-xs font-mono text-white truncate max-w-[180px]">{file.fileName}</span>
+                            <span className="text-[10px] font-mono text-slate-400 mt-1">{(file.size / 1024).toFixed(1)} KB</span>
+                          </div>
+                          <a
+                            href={`http://localhost:3000/${file.filePath.startsWith('./') ? file.filePath.slice(2) : file.filePath.startsWith('/') ? file.filePath.slice(1) : file.filePath}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download={file.fileName}
+                            className="text-[10px] bg-white/5 hover:bg-cyan-500/20 text-cyan-400 px-3 py-1.5 rounded-lg font-mono font-bold uppercase tracking-wider transition-all"
+                          >
+                            ⬇️ Download
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 

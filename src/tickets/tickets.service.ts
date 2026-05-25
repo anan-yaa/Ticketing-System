@@ -20,6 +20,7 @@ export class TicketsService {
         include: { author: { select: { id: true, name: true, email: true, role: { select: { name: true } } } } }
       },
       customer: { select: { name: true, email: true } },
+      attachments: true,
     };
 
     // Handle 'T007' format — strip prefix and look up by ticketSeq
@@ -225,6 +226,7 @@ export class TicketsService {
       orderBy: { createdAt: 'desc' },
       include: { 
         customer: { select: { name: true, email: true } },
+        attachments: true,
         comments: {
           orderBy: { createdAt: 'asc' },
           include: {

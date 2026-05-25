@@ -36,6 +36,7 @@ export interface Ticket {
   closedAt?: string | null;
   isSlaBreached?: boolean | null;
   comments?: any[];
+  attachments?: any[];
   slaDeadline: string;
   createdAt: string;
   updatedAt: string;
