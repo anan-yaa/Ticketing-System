@@ -1391,9 +1391,7 @@ export const AdminTicketsQueue: React.FC = () => {
                       className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 text-white outline-none text-xs font-mono uppercase"
                     >
                       <option value="" className="bg-slate-900">Select Contract</option>
-                      <option value="SLA-PREMIUM-24X7" className="bg-slate-900">SLA-PREMIUM-24X7</option>
-                      <option value="SLA-STANDARD-BIZ" className="bg-slate-900">SLA-STANDARD-BIZ</option>
-                      <option value="SLA-BASIC-HOURS" className="bg-slate-900">SLA-BASIC-HOURS</option>
+
                       {masterServices.map((s) => (
                         <option key={s.id} value={s.name} className="bg-slate-900">
                           {s.name}

@@ -490,30 +490,33 @@ export class TicketsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // a. Update child's parentId and statuses
+      // Step D: Update child ticket status and notes
       const updatedChild = await tx.ticket.update({
         where: { id: childTicket.id },
         data: {
           parentId: parentTicket.id,
-          status: TicketStatus.IN_PROGRESS,
-          subStatus: SubStatus.ON_HOLD,
+          status: TicketStatus.CLOSED,
+          subStatus: SubStatus.NONE,
+          description: childTicket.description + `\n\n[SYSTEM] Merged into Primary Ticket T${parentTicket.ticketSeq}`,
         }
       });
 
-      // c. Audit Log in Child
-      await tx.comment.create({
-        data: {
-          content: `[SYSTEM MERGE] This ticket has been bundled into Parent Ticket #${parentTicket.ticketSeq}. Monitoring master resolution trail.`,
-          isInternal: true,
-          type: CommentType.SYSTEM_EVENT,
-          ticketId: childTicket.id,
-        }
+      // Step A: Migrate Attachments
+      await tx.attachment.updateMany({
+        where: { ticketId: childTicket.id },
+        data: { ticketId: parentTicket.id }
       });
 
-      // d. Audit Log in Parent
+      // Step B: Migrate Comments / Audit Logs
+      await tx.comment.updateMany({
+        where: { ticketId: childTicket.id },
+        data: { ticketId: parentTicket.id }
+      });
+
+      // Step C: Audit Log in Primary Ticket
       await tx.comment.create({
         data: {
-          content: `[SYSTEM MERGE] Child Ticket #${childTicket.ticketSeq} has been successfully nested into this execution sequence.`,
+          content: `🛡️ System: Consolidated history, logs, and attachments from merged duplicate ticket T${childTicket.ticketSeq}.`,
           isInternal: true,
           type: CommentType.SYSTEM_EVENT,
           ticketId: parentTicket.id,
