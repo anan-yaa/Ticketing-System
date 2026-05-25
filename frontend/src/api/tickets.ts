@@ -5,6 +5,7 @@ export interface Ticket {
   title: string;
   description: string;
   status: 'OPEN' | 'IN_PROGRESS' | 'CLOSED' | string;
+  subStatus?: string;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' | string;
   category?: string;
   source: string;
@@ -27,6 +28,7 @@ export interface Ticket {
   timeSpentMin?: number | null;
   isScopeInScope?: boolean | null;
   affectedDevice?: string | null;
+  parentId?: string | null;
   deviceIp?: string | null;
   queueId?: string | null;
   slaId?: string | null;

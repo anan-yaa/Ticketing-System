@@ -8,9 +8,12 @@ import { AuditLogModule } from './audit-log/audit-log.module';
 import { RolesModule } from './roles/roles.module';
 import { MasterConfigModule } from './master-config/master-config.module';
 
+import { ScheduleModule } from '@nestjs/schedule';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     PrismaModule, 
     AuthModule, 
     UsersModule, 

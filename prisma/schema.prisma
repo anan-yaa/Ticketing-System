@@ -22,9 +22,18 @@ enum SystemRole {
 enum TicketStatus {
   OPEN
   IN_PROGRESS
-  PENDING
-  WAITING
   CLOSED
+}
+
+enum SubStatus {
+  WORK_IN_PROGRESS
+  WAITING_FOR_APPROVAL
+  WAITING_FOR_AGENT
+  WAITING_FOR_VENDOR
+  WAITING_FOR_CUSTOMER
+  ON_HOLD
+  UNDER_OBSERVATION
+  NONE
 }
 
 enum TicketPriority {
@@ -104,6 +113,7 @@ model Ticket {
   title            String
   description      String
   status           TicketStatus
+  subStatus        SubStatus      @default(NONE)
   priority         TicketPriority
   category         String?
   source           String         @default("PORTAL")
@@ -137,17 +147,43 @@ model Ticket {
   firstRespondedAt     DateTime?
   isTtfrBreached       Boolean        @default(false)
   isResolutionBreached Boolean        @default(false)
+  scheduledAt          DateTime?
+  schedulingReason     String?
+  attachments          Attachment[]
+  
+  parentId             String?
+  parent               Ticket?        @relation("TicketToTicket", fields: [parentId], references: [id])
+  children             Ticket[]       @relation("TicketToTicket")
+}
+
+model Attachment {
+  id        String   @id @default(uuid())
+  fileName  String
+  filePath  String
+  mimeType  String?
+  size      Int?
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+enum CommentType {
+  CLIENT_REPLY
+  AGENT_REPLY
+  INTERNAL_NOTE
+  SYSTEM_EVENT
 }
 
 model Comment {
-  id         String   @id @default(uuid())
+  id         String       @id @default(uuid())
   content    String
-  isInternal Boolean  @default(false)
+  type       CommentType  @default(CLIENT_REPLY)
+  isInternal Boolean      @default(false)
   ticketId   String
-  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  authorId   String
-  author     User     @relation(fields: [authorId], references: [id])
-  createdAt  DateTime @default(now())
+  ticket     Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId   String?
+  author     User?        @relation(fields: [authorId], references: [id])
+  createdAt  DateTime     @default(now())
 }
 
 model AuditLog {

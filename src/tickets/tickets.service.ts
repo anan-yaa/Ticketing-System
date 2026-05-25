@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { TicketPriority, TicketStatus } from '@prisma/client';
+import { TicketPriority, TicketStatus, SubStatus, CommentType } from '@prisma/client';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateCoreDataDto } from './dto/update-core-data.dto';
 import { SlaService } from './sla.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class TicketsService {
@@ -13,21 +14,29 @@ export class TicketsService {
   ) {}
 
   private async findTicketById(idOrSeq: string) {
+    const include = {
+      comments: {
+        orderBy: { createdAt: 'asc' as const },
+        include: { author: { select: { id: true, name: true, email: true, role: { select: { name: true } } } } }
+      },
+      customer: { select: { name: true, email: true } },
+    };
+
     // Handle 'T007' format — strip prefix and look up by ticketSeq
     if (/^T\d+$/i.test(idOrSeq)) {
       const seq = parseInt(idOrSeq.replace(/^T/i, ''), 10);
       console.log('[findTicketById] T-format lookup — ticketSeq:', seq);
-      return this.prisma.ticket.findUnique({ where: { ticketSeq: seq } });
+      return this.prisma.ticket.findUnique({ where: { ticketSeq: seq }, include });
     }
     // Handle plain numeric string like '7'
     const asNum = parseInt(idOrSeq, 10);
     if (!isNaN(asNum) && String(asNum) === idOrSeq) {
       console.log('[findTicketById] Numeric string lookup — ticketSeq:', asNum);
-      return this.prisma.ticket.findUnique({ where: { ticketSeq: asNum } });
+      return this.prisma.ticket.findUnique({ where: { ticketSeq: asNum }, include });
     }
     // Fall back to UUID lookup
     console.log('[findTicketById] UUID lookup — id:', idOrSeq);
-    return this.prisma.ticket.findUnique({ where: { id: idOrSeq } });
+    return this.prisma.ticket.findUnique({ where: { id: idOrSeq }, include });
   }
 
   private formatTicket(ticket: any) {
@@ -126,13 +135,25 @@ export class TicketsService {
     return tickets.map(t => this.formatTicket(t));
   }
 
-  // POST /tickets/:id/comments (Customer)
-  async addComment(ticketId: string, authorId: string, content: string) {
+  // POST /tickets/:id/messages
+  async addMessage(ticketId: string, user: any, content: string, isInternal: boolean) {
     const ticket = await this.findTicketById(ticketId);
     if (!ticket) throw new NotFoundException('Ticket not found');
     
-    if (ticket.customerId !== authorId) {
-      throw new ForbiddenException('You can only comment on your own tickets.');
+    const authorId = user.userId || user.id;
+    const role = user.role;
+
+    let type: CommentType = CommentType.CLIENT_REPLY;
+
+    if (role !== 'CUSTOMER' && role !== 'User') { // Basic check for staff vs customer
+      if (isInternal) {
+        type = CommentType.INTERNAL_NOTE;
+      } else {
+        type = CommentType.AGENT_REPLY;
+      }
+    } else {
+      type = CommentType.CLIENT_REPLY;
+      isInternal = false;
     }
 
     const comment = await this.prisma.comment.create({
@@ -140,6 +161,8 @@ export class TicketsService {
         content,
         ticketId: ticket.id,
         authorId,
+        type,
+        isInternal,
       },
       include: {
         author: {
@@ -290,8 +313,10 @@ export class TicketsService {
     }
 
     // Strip non-Prisma fields before writing to the database
-    const { timeSpentTracking, status, ticketId: _tid, ...prismaData } = data as any;
+    const { timeSpentTracking, status, ticketId: _tid, scheduledAt, ...prismaData } = data as any;
     const timeSpentMin = timeSpentTracking !== undefined ? timeSpentTracking : data.timeSpentMin;
+
+    const parsedScheduledAt = scheduledAt ? new Date(scheduledAt) : null;
 
     try {
       const updated = await this.prisma.ticket.update({
@@ -299,6 +324,7 @@ export class TicketsService {
         data: {
           ...prismaData,
           ...(timeSpentMin !== undefined ? { timeSpentMin } : {}),
+          ...(scheduledAt !== undefined ? { scheduledAt: parsedScheduledAt } : {}),
           slaDeadline,
           ttfrDeadline,
           resolutionDeadline,
@@ -312,13 +338,32 @@ export class TicketsService {
     }
   }
 
-  async updateStatus(ticketId: string, status: string) {
+  async updateStatus(ticketId: string, status?: string, subStatus?: string) {
     const ticket = await this.findTicketById(ticketId);
     if (!ticket) throw new NotFoundException('Ticket not found');
 
-    const updateData: any = { status: status as TicketStatus };
+    const updateData: any = {};
+    
+    // Process subStatus if provided
+    if (subStatus) {
+      updateData.subStatus = subStatus as SubStatus;
+      // Force status to IN_PROGRESS if subStatus is set (unless it's NONE, then we might just be clearing it)
+      if (subStatus !== 'NONE') {
+        updateData.status = TicketStatus.IN_PROGRESS;
+      }
+    }
+    
+    if (status) {
+      updateData.status = status as TicketStatus;
+      // If status is OPEN or CLOSED, clear subStatus
+      if (status === 'OPEN' || status === 'CLOSED') {
+        updateData.subStatus = SubStatus.NONE;
+      }
+    }
 
-    if (status === 'IN_PROGRESS' && !ticket.firstRespondedAt) {
+    const finalStatus = updateData.status || ticket.status;
+
+    if (finalStatus === 'IN_PROGRESS' && !ticket.firstRespondedAt) {
       const now = new Date();
       updateData.firstRespondedAt = now;
       updateData.isTtfrBreached = now > ticket.ttfrDeadline;
@@ -327,7 +372,7 @@ export class TicketsService {
       updateData.respondedAt = now;
     }
 
-    if (status === 'CLOSED') {
+    if (finalStatus === 'CLOSED' && ticket.status !== 'CLOSED') {
       const now = new Date();
       updateData.closedAt = now;
       if (ticket.slaDeadline && now > ticket.slaDeadline) {
@@ -336,6 +381,33 @@ export class TicketsService {
       if (ticket.resolutionDeadline && now > ticket.resolutionDeadline) {
         updateData.isResolutionBreached = true;
       }
+
+      // Automatically close children and log
+      const children = await this.prisma.ticket.findMany({ where: { parentId: ticket.id } });
+      if (children.length > 0) {
+        await this.prisma.ticket.updateMany({
+          where: { parentId: ticket.id, status: { not: 'CLOSED' } },
+          data: {
+            status: 'CLOSED',
+            subStatus: 'NONE',
+            closedAt: now,
+            isResolutionBreached: ticket.resolutionDeadline ? now > ticket.resolutionDeadline : false,
+          }
+        });
+
+        for (const child of children) {
+          if (child.status !== 'CLOSED') {
+            await this.prisma.comment.create({
+              data: {
+                content: `[SYSTEM MERGE] Parent Ticket #${ticket.ticketSeq} resolved. Cascading CLOSURE to this nested ticket.`,
+                isInternal: true,
+                type: CommentType.SYSTEM_EVENT,
+                ticketId: child.id,
+              }
+            });
+          }
+        }
+      }
     }
 
     const updated = await this.prisma.ticket.update({
@@ -343,5 +415,110 @@ export class TicketsService {
       data: updateData,
     });
     return this.formatTicket(updated);
+  }
+
+  async registerAttachmentRecord(numericId: number, fileMeta: any) {
+    // We use the numeric sequence id to find the actual ticket
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { ticketSeq: numericId }
+    });
+    if (!ticket) {
+      throw new NotFoundException(`Ticket with numeric ID ${numericId} not found`);
+    }
+
+    const attachment = await this.prisma.attachment.create({
+      data: {
+        fileName: fileMeta.fileName,
+        filePath: fileMeta.filePath,
+        mimeType: fileMeta.mimeType,
+        size: fileMeta.size,
+        ticketId: ticket.id,
+      }
+    });
+
+    return attachment;
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async checkScheduledTickets() {
+    const now = new Date();
+    const ticketsToWake = await this.prisma.ticket.findMany({
+      where: {
+        status: TicketStatus.IN_PROGRESS,
+        subStatus: SubStatus.ON_HOLD,
+        scheduledAt: {
+          lte: now,
+        },
+      },
+    });
+
+    for (const ticket of ticketsToWake) {
+      await this.prisma.ticket.update({
+        where: { id: ticket.id },
+        data: {
+          subStatus: SubStatus.WORK_IN_PROGRESS,
+          scheduledAt: null,
+          schedulingReason: null,
+        },
+      });
+
+      await this.prisma.comment.create({
+        data: {
+          content: "[SYSTEM AUTO-WAKE] Scheduled execution window reached. Ticket restored to active workspace trail.",
+          isInternal: true,
+          type: CommentType.SYSTEM_EVENT,
+          ticketId: ticket.id,
+          // authorId is optional now, leaving it null implies a SYSTEM comment
+        },
+      });
+
+      console.log(`[Cron] Woke up ticket ${ticket.id}`);
+    }
+  }
+
+  async mergeTickets(childId: string, parentId: string) {
+    const childTicket = await this.findTicketById(childId);
+    const parentTicket = await this.findTicketById(parentId);
+
+    if (!childTicket) throw new NotFoundException(`Child ticket ${childId} not found`);
+    if (!parentTicket) throw new NotFoundException(`Parent ticket ${parentId} not found`);
+
+    if (childTicket.id === parentTicket.id) {
+      throw new BadRequestException('Cannot merge a ticket into itself');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // a. Update child's parentId and statuses
+      const updatedChild = await tx.ticket.update({
+        where: { id: childTicket.id },
+        data: {
+          parentId: parentTicket.id,
+          status: TicketStatus.IN_PROGRESS,
+          subStatus: SubStatus.ON_HOLD,
+        }
+      });
+
+      // c. Audit Log in Child
+      await tx.comment.create({
+        data: {
+          content: `[SYSTEM MERGE] This ticket has been bundled into Parent Ticket #${parentTicket.ticketSeq}. Monitoring master resolution trail.`,
+          isInternal: true,
+          type: CommentType.SYSTEM_EVENT,
+          ticketId: childTicket.id,
+        }
+      });
+
+      // d. Audit Log in Parent
+      await tx.comment.create({
+        data: {
+          content: `[SYSTEM MERGE] Child Ticket #${childTicket.ticketSeq} has been successfully nested into this execution sequence.`,
+          isInternal: true,
+          type: CommentType.SYSTEM_EVENT,
+          ticketId: parentTicket.id,
+        }
+      });
+
+      return updatedChild;
+    });
   }
 }

@@ -24,7 +24,8 @@ interface Ticket {
   id: string;
   title: string;
   description: string;
-  status: 'OPEN' | 'PENDING' | 'WAITING' | 'CLOSED';
+  status: 'OPEN' | 'IN_PROGRESS' | 'CLOSED';
+  subStatus?: string;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   category: string | null;
   source: string;
@@ -203,8 +204,7 @@ export const CustomerTicketPortal: React.FC = () => {
   const getStatusGlow = (status: string) => {
     switch (status) {
       case 'OPEN': return 'text-cyan-300 border-cyan-500/40 bg-cyan-950/20 shadow-[0_0_15px_rgba(34,211,238,0.3)]';
-      case 'PENDING': return 'text-amber-300 border-amber-500/40 bg-amber-950/20 shadow-[0_0_15px_rgba(251,191,36,0.3)]';
-      case 'WAITING': return 'text-purple-300 border-purple-500/40 bg-purple-950/20 shadow-[0_0_15px_rgba(192,132,252,0.3)]';
+      case 'IN_PROGRESS': return 'text-amber-300 border-amber-500/40 bg-amber-950/20 shadow-[0_0_15px_rgba(251,191,36,0.3)]';
       case 'CLOSED': return 'text-slate-400 border-slate-700 bg-slate-900/50';
       default: return 'text-cyan-300 border-cyan-500/40 bg-cyan-950/20';
     }
@@ -225,7 +225,7 @@ export const CustomerTicketPortal: React.FC = () => {
   // Statistics calculation
   const totalCount = tickets.length;
   const openCount = tickets.filter(t => t.status === 'OPEN').length;
-  const inProgressCount = tickets.filter(t => t.status === 'PENDING' || t.status === 'WAITING').length;
+  const inProgressCount = tickets.filter(t => t.status === 'IN_PROGRESS').length;
   const closedCount = tickets.filter(t => t.status === 'CLOSED').length;
 
   // Filter and search computation
@@ -356,8 +356,7 @@ export const CustomerTicketPortal: React.FC = () => {
                 >
                   <option value="ALL">ALL STATUSES</option>
                   <option value="OPEN">OPEN</option>
-                  <option value="PENDING">PENDING</option>
-                  <option value="WAITING">WAITING</option>
+                  <option value="IN_PROGRESS">IN PROGRESS</option>
                   <option value="CLOSED">CLOSED</option>
                 </select>
 

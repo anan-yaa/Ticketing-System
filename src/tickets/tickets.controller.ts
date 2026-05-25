@@ -5,6 +5,11 @@ import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateCoreDataDto } from './dto/update-core-data.dto';
+import { UpdateStatusDto } from './dto/update-status.dto';
+import { UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 @Controller('tickets')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -13,6 +18,51 @@ export class TicketsController {
 
   // ─── STATIC LITERAL ROUTES FIRST ─────────────────────────────────────────
   // Always declare static/literal routes before any dynamic :id routes.
+
+  @Post('merge')
+  @Permissions('TICKET_UPDATE')
+  async mergeTickets(
+    @Body('childTicketId') childTicketId: string,
+    @Body('parentTicketId') parentTicketId: string,
+  ) {
+    if (!childTicketId || !parentTicketId) {
+      throw new BadRequestException('Both childTicketId and parentTicketId are required');
+    }
+    return this.ticketsService.mergeTickets(childTicketId, parentTicketId);
+  }
+
+  @Post('upload-attachment')
+  @Permissions('TICKET_UPDATE')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/attachments',
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = extname(file.originalname);
+        cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+      }
+    })
+  }))
+  async uploadAttachment(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('ticketId') ticketId: string,
+  ) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    if (!ticketId) throw new BadRequestException('Ticket ID is required');
+
+    // Strip prefix if necessary, but ticketsService already does this in findTicketById,
+    // so we can just pass the ticketId directly. However, the prompt asked to strip
+    // prefixes to get the explicit numeric key.
+    const numericId = parseInt(ticketId.replace(/\D/g, ''), 10);
+    
+    // In our service, we can use ticketId or numericId. Let's pass what's required.
+    return this.ticketsService.registerAttachmentRecord(numericId, {
+      fileName: file.originalname,
+      filePath: file.path,
+      mimeType: file.mimetype,
+      size: file.size,
+    });
+  }
 
   @Post()
   @Permissions('TICKET_CREATE')
@@ -50,8 +100,11 @@ export class TicketsController {
 
   @Patch(':id/status')
   @Permissions('TICKET_UPDATE')
-  async updateStatus(@Param('id') id: string, @Body('status') status: string) {
-    return this.ticketsService.updateStatus(id, status);
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateStatusDto,
+  ) {
+    return this.ticketsService.updateStatus(id, dto.status, dto.subStatus);
   }
 
   @Patch(':id/close')
@@ -60,10 +113,14 @@ export class TicketsController {
     return this.ticketsService.closeTicket(id, req.user.userId);
   }
 
-  @Post(':id/comments')
+  @Post(':id/messages')
   @Permissions('TICKET_VIEW')
-  async addComment(@Request() req, @Param('id') id: string, @Body('content') content: string) {
-    return this.ticketsService.addComment(id, req.user.userId, content);
+  async addMessage(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() body: { content: string, isInternal: boolean }
+  ) {
+    return this.ticketsService.addMessage(id, req.user, body.content, body.isInternal);
   }
 
   // ─── BARE :id WILDCARD ROUTES LAST ───────────────────────────────────────

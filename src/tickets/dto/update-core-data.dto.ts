@@ -71,4 +71,16 @@ export class UpdateCoreDataDto {
   @IsOptional()
   @IsString()
   status?: string | null;
+
+  @IsOptional()
+  @IsString()
+  subStatus?: string | null;
+
+  @IsOptional()
+  @IsString()
+  scheduledAt?: string | null;
+
+  @IsOptional()
+  @IsString()
+  schedulingReason?: string | null;
 }

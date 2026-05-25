@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchAllTicketsAdmin, createTicketAdmin, updateTicketCoreData, Ticket } from '../../api/tickets';
 import { fetchUsers } from '../../api/users';
 import { PermissionGate } from '../../components/PermissionGate';
-import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axios';
 import { SlaHealthTelemetry } from '../../components/SlaHealthTelemetry';
+import { ScheduleTicketModal } from './ScheduleTicketModal';
+import { MergeTicketsModal } from './MergeTicketsModal';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const SERVICE_GROUPS_CONFIG = [
   {
@@ -40,14 +43,94 @@ const SERVICE_GROUPS_CONFIG = [
 
 export const AdminTicketsQueue: React.FC = () => {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
   const [workspace, setWorkspace] = useState<'openQueue' | 'inProgress' | 'closedArchive'>('openQueue');
   const [selectedGroupFilter, setSelectedGroupFilter] = useState('ALL');
   const [isExpanded, setIsExpanded] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCoreDataModalOpen, setIsCoreDataModalOpen] = useState(false);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [replyText, setReplyText] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedTicket) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('ticketId', selectedTicket.id);
+
+      await api.post('/tickets/upload-attachment', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      setToast({ message: 'Attachment transmitted successfully', type: 'success' });
+      queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
+    } catch (error) {
+      console.error(error);
+      setToast({ message: 'Failed to transmit attachment', type: 'error' });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const submitMessage = async (isInternal: boolean) => {
+    if (!replyText.trim() || !selectedTicket) return;
+    try {
+      const res = await api.post(`/tickets/${selectedTicket.id}/messages`, {
+        content: replyText,
+        isInternal,
+      });
+      setSelectedTicket((prev) => prev ? { ...prev, comments: [...(prev.comments || []), res.data] } : prev);
+      setReplyText('');
+      setToast({ message: isInternal ? 'Private note added' : 'Reply sent to customer', type: 'success' });
+    } catch (error) {
+      console.error(error);
+      setToast({ message: 'Failed to send message', type: 'error' });
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!selectedTicket) return;
+    
+    const element = document.getElementById('audit-log-print-zone');
+    if (!element) return;
+    
+    try {
+      const canvas = await html2canvas(element, {
+        backgroundColor: '#020617', // slate-950
+        scale: 2,
+      });
+      
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Ticket_${selectedTicket.id}_Audit_Report.pdf`);
+    } catch (err) {
+      console.error('Error generating PDF', err);
+      setToast({ message: 'Failed to generate PDF', type: 'error' });
+    }
+  };
 
   // Create Ticket Form State
   const [title, setTitle] = useState('');
@@ -492,6 +575,7 @@ export const AdminTicketsQueue: React.FC = () => {
                       <th className="p-4 font-bold font-mono">Title</th>
                       <th className="p-4 font-bold font-mono">Customer Name</th>
                       <th className="p-4 font-bold font-mono">Category</th>
+                      <th className="p-4 font-bold font-mono">Status</th>
                       <th className="p-4 font-bold font-mono">Assigned Engineer</th>
                       <th className="p-4 font-bold font-mono text-center">Priority</th>
                     </tr>
@@ -499,7 +583,7 @@ export const AdminTicketsQueue: React.FC = () => {
                   <tbody>
                     {inProgressTickets.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-slate-500 uppercase font-mono">
+                        <td colSpan={7} className="p-8 text-center text-slate-500 uppercase font-mono">
                           No active tickets inside this channel
                         </td>
                       </tr>
@@ -521,6 +605,42 @@ export const AdminTicketsQueue: React.FC = () => {
                               {t.customerName || t.customer?.name || 'N/A'}
                             </td>
                             <td className="p-4 uppercase font-mono">{t.category || 'General'}</td>
+                            <td className="p-4 font-mono">
+                              {t.status === 'IN_PROGRESS' ? (
+                                <select
+                                  onClick={(e) => e.stopPropagation()}
+                                  value={t.subStatus || 'NONE'}
+                                  onChange={async (e) => {
+                                    const newSubStatus = e.target.value;
+                                    try {
+                                      await api.patch(`/tickets/${t.id}/status`, { subStatus: newSubStatus });
+                                      queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
+
+                                      // If this ticket is also currently open in the drawer, update the local state too
+                                      if (selectedTicket?.id === t.id) {
+                                        setSelectedTicket({ ...selectedTicket, subStatus: newSubStatus });
+                                      }
+
+                                      setToast({ message: `Status updated to ${newSubStatus.replace(/_/g, ' ')}`, type: 'success' });
+                                    } catch (err) {
+                                      setToast({ message: 'Failed to update Status', type: 'error' });
+                                    }
+                                  }}
+                                  className="bg-slate-900/80 border border-white/10 text-xs font-mono uppercase rounded-lg px-2 py-1 outline-none transition-all focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 cursor-pointer text-slate-300 w-36"
+                                >
+                                  <option value="NONE">ASSIGN STATE</option>
+                                  <option value="WORK_IN_PROGRESS">WORK IN PROGRESS</option>
+                                  <option value="WAITING_FOR_APPROVAL">WAITING FOR APPROVAL</option>
+                                  <option value="WAITING_FOR_AGENT">WAITING FOR AGENT</option>
+                                  <option value="WAITING_FOR_VENDOR">WAITING FOR VENDOR</option>
+                                  <option value="WAITING_FOR_CUSTOMER">WAITING FOR CUSTOMER</option>
+                                  <option value="ON_HOLD">ON HOLD</option>
+                                  <option value="UNDER_OBSERVATION">UNDER OBSERVATION</option>
+                                </select>
+                              ) : (
+                                <span className="text-slate-500">—</span>
+                              )}
+                            </td>
                             <td className="p-4 font-mono">
                               <span className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-full text-slate-300 text-[10px]">
                                 {t.ticketOwner?.name || t.ticketOwner?.email || 'N/A'}
@@ -666,6 +786,25 @@ export const AdminTicketsQueue: React.FC = () => {
                   <span className={`px-3 py-1 text-[10px] font-black tracking-widest uppercase rounded-lg border ${statusColor(selectedTicket.status)}`}>
                     {selectedTicket.status}
                   </span>
+
+                  {selectedTicket.status === 'IN_PROGRESS' && (
+                    <button
+                      onClick={() => setIsScheduleModalOpen(true)}
+                      className="px-3 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-400 text-indigo-300 font-mono text-[10px] font-bold uppercase rounded-lg transition-all shadow-[0_0_10px_rgba(99,102,241,0.1)] hover:shadow-[0_0_15px_rgba(99,102,241,0.3)] tracking-wider flex items-center gap-1.5"
+                      title="Schedule Ticket"
+                    >
+                      <span>⏱</span> Schedule
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => setIsMergeModalOpen(true)}
+                    className="px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-400 text-amber-300 font-mono text-[10px] font-bold uppercase rounded-lg transition-all shadow-[0_0_10px_rgba(245,158,11,0.1)] hover:shadow-[0_0_15px_rgba(245,158,11,0.3)] tracking-wider flex items-center gap-1.5"
+                    title="Merge Tickets"
+                  >
+                    <span>🔗</span> Merge
+                  </button>
+
                   {selectedTicket.status === 'OPEN' && (
                     <button
                       onClick={async () => {
@@ -684,21 +823,48 @@ export const AdminTicketsQueue: React.FC = () => {
                     </button>
                   )}
                   {selectedTicket.status === 'IN_PROGRESS' && (
-                    <button
-                      onClick={async () => {
-                        try {
-                          const res = await api.patch(`/tickets/${selectedTicket.id}/status`, { status: 'CLOSED' });
-                          setSelectedTicket(res.data);
-                          queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
-                          setToast({ message: 'Ticket successfully resolved and archived', type: 'success' });
-                        } catch (err) {
-                          setToast({ message: 'Failed to update ticket status', type: 'error' });
-                        }
-                      }}
-                      className="px-3 py-1 bg-emerald-500/20 hover:bg-emerald-500 border border-emerald-500/50 hover:border-emerald-400 text-emerald-300 hover:text-white font-mono text-[10px] font-bold uppercase rounded-lg transition-all shadow-[0_0_10px_rgba(52,211,153,0.2)] hover:shadow-[0_0_20px_rgba(52,211,153,0.5)] tracking-wider animate-pulse"
-                    >
-                      Close Ticket
-                    </button>
+                    <>
+                      <select
+                        value={selectedTicket.subStatus || 'NONE'}
+                        onChange={async (e) => {
+                          const newSubStatus = e.target.value;
+                          try {
+                            const res = await api.patch(`/tickets/${selectedTicket.id}/status`, { subStatus: newSubStatus });
+                            setSelectedTicket(res.data);
+                            queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
+                            setToast({ message: `Status updated to ${newSubStatus.replace(/_/g, ' ')}`, type: 'success' });
+                          } catch (err) {
+                            setToast({ message: 'Failed to update Status', type: 'error' });
+                          }
+                        }}
+                        className="bg-slate-900/80 border border-white/10 text-xs font-mono uppercase rounded-lg px-3 py-1 outline-none transition-all focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 cursor-pointer text-slate-300"
+                      >
+                        <option value="NONE">ASSIGN STATE</option>
+                        <option value="WORK_IN_PROGRESS">WORK IN PROGRESS</option>
+                        <option value="WAITING_FOR_APPROVAL">WAITING FOR APPROVAL</option>
+                        <option value="WAITING_FOR_AGENT">WAITING FOR AGENT</option>
+                        <option value="WAITING_FOR_VENDOR">WAITING FOR VENDOR</option>
+                        <option value="WAITING_FOR_CUSTOMER">WAITING FOR CUSTOMER</option>
+                        <option value="ON_HOLD">ON HOLD</option>
+                        <option value="UNDER_OBSERVATION">UNDER OBSERVATION</option>
+                      </select>
+
+                      <button
+                        onClick={async () => {
+                          try {
+                            const res = await api.patch(`/tickets/${selectedTicket.id}/status`, { status: 'CLOSED' });
+                            setSelectedTicket(res.data);
+                            queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
+                            setToast({ message: 'Ticket successfully resolved and archived', type: 'success' });
+                          } catch (err) {
+                            setToast({ message: 'Failed to update ticket status', type: 'error' });
+                          }
+                        }}
+                        className="px-3 py-1 bg-emerald-500/20 hover:bg-emerald-500 border border-emerald-500/50 hover:border-emerald-400 text-emerald-300 hover:text-white font-mono text-[10px] font-bold uppercase rounded-lg transition-all shadow-[0_0_10px_rgba(52,211,153,0.2)] hover:shadow-[0_0_20px_rgba(52,211,153,0.5)] tracking-wider animate-pulse"
+                      >
+                        Close Ticket
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -729,33 +895,69 @@ export const AdminTicketsQueue: React.FC = () => {
               </div>
 
               <div className="border-t border-white/5 pt-6 mt-6">
-                <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest block border-b border-white/5 pb-2 mb-4">
-                  Ticket Audit Log
-                </span>
+                <div className="flex justify-between items-center border-b border-white/5 pb-2 mb-4">
+                  <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest block">
+                    Ticket Audit Log
+                  </span>
+                  <button
+                    onClick={handleDownloadPDF}
+                    className="text-[9px] font-mono uppercase tracking-widest text-cyan-400 hover:text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 px-2 py-1 rounded transition-colors"
+                  >
+                    Download PDF
+                  </button>
+                </div>
 
-                {(!selectedTicket.comments || selectedTicket.comments.length === 0) ? (
-                  <div className="h-full flex items-center justify-center text-slate-600 font-mono text-xs tracking-widest uppercase">
-                    No replies or logs on record
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {selectedTicket.comments.map((comment: any) => {
-                      const isSelf = comment.authorId === user?.id;
-                      const authorName = comment.author?.name || 'SYSTEM';
-                      const authorRole = comment.author?.role?.name || 'AGENT';
+                <div id="audit-log-print-zone" className="p-4 rounded-xl">
+                  {(!selectedTicket.comments || selectedTicket.comments.length === 0) ? (
+                    <div className="h-full flex items-center justify-center text-slate-600 font-mono text-xs tracking-widest uppercase mb-6">
+                      No replies or logs on record
+                    </div>
+                  ) : (
+                    <div className="space-y-4 mb-6">
+                      {selectedTicket.comments.map((comment: any, index: number) => {
+                        const trackingNumber = index + 1;
+                        const authorName = comment.author?.name || 'SYSTEM';
+                        const authorRole = comment.author?.role?.name || 'AGENT';
+                        const cType = comment.type || (comment.isInternal ? 'INTERNAL_NOTE' : 'CLIENT_REPLY');
+
+                        if (cType === 'SYSTEM_EVENT' || (comment.isInternal && authorName === 'SYSTEM')) {
+                          return (
+                            <div key={comment.id} className="text-center text-[10px] font-mono text-slate-500 tracking-widest uppercase my-4">
+                              <span className="text-[10px] font-mono text-cyan-400 font-bold px-1.5 py-0.5 bg-cyan-500/10 rounded mr-2">
+                                [ #{trackingNumber} ]
+                              </span>
+                              {comment.content}
+                            </div>
+                          );
+                        }
+
+                      const isRightAligned = cType === 'AGENT_REPLY';
+                      const isInternalNote = cType === 'INTERNAL_NOTE';
+
+                      let alignmentClass = 'items-start';
+                      let bubbleClass = 'bg-white/5 border-white/10 text-slate-300 rounded-tl-sm'; // Default CLIENT_REPLY
+                      
+                      if (isRightAligned) {
+                        alignmentClass = 'ml-auto items-end';
+                        bubbleClass = 'bg-cyan-900/10 border-cyan-500/20 text-cyan-50 rounded-tr-sm shadow-[0_0_15px_rgba(6,182,212,0.08)]';
+                      } else if (isInternalNote) {
+                        alignmentClass = 'items-start';
+                        bubbleClass = 'bg-amber-500/5 border-amber-500/20 text-amber-100 rounded-tl-sm';
+                      }
 
                       return (
-                        <div
-                          key={comment.id}
-                          className={`flex flex-col max-w-[85%] ${isSelf ? 'ml-auto items-end' : 'items-start'}`}
-                        >
+                        <div key={comment.id} className={`flex flex-col max-w-[85%] ${alignmentClass}`}>
                           <div className="flex items-center gap-2 mb-1.5 font-mono text-[9px] text-slate-500 tracking-wider">
+                            <span className="text-[10px] font-mono text-cyan-400 font-bold px-1.5 py-0.5 bg-cyan-500/10 rounded">
+                              [ #{trackingNumber} ]
+                            </span>
                             <span className="uppercase text-slate-400 font-semibold">{authorName}</span>
                             <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 uppercase scale-90">{authorRole}</span>
+                            {isInternalNote && <span className="text-amber-500 font-bold">[INTERNAL NOTE]</span>}
                             <span>•</span>
                             <span>{new Date(comment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
-                          <div className={`px-5 py-3 rounded-2xl text-xs leading-relaxed border ${isSelf ? 'bg-cyan-900/20 border-cyan-500/30 text-cyan-50 rounded-tr-sm shadow-[0_0_15px_rgba(6,182,212,0.08)]' : 'bg-white/5 border-white/10 text-slate-300 rounded-tl-sm'}`}>
+                          <div className={`px-5 py-3 rounded-2xl text-xs leading-relaxed border ${bubbleClass}`}>
                             {comment.content}
                           </div>
                         </div>
@@ -763,6 +965,34 @@ export const AdminTicketsQueue: React.FC = () => {
                     })}
                   </div>
                 )}
+                </div>
+
+                {/* DUAL-ACTION SUBMISSION FORM TOOLBAR */}
+                <div className="bg-black/30 border border-white/5 p-4 rounded-xl mt-4">
+                  <textarea
+                    rows={3}
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder="Type a message..."
+                    className="w-full bg-slate-950/50 border border-white/10 rounded-lg p-3 text-white text-xs font-mono focus:outline-none focus:border-cyan-500/50 resize-none mb-3"
+                  />
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      onClick={() => submitMessage(true)}
+                      disabled={!replyText.trim()}
+                      className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 text-[10px] font-mono font-bold uppercase tracking-widest rounded-lg transition-all disabled:opacity-50 flex items-center gap-2"
+                    >
+                      <span>🔒</span> Add Private Note
+                    </button>
+                    <button
+                      onClick={() => submitMessage(false)}
+                      disabled={!replyText.trim()}
+                      className="px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-[10px] font-mono font-bold uppercase tracking-widest rounded-lg transition-all disabled:opacity-50 flex items-center gap-2"
+                    >
+                      <span>✉</span> Reply to Customer
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -789,6 +1019,44 @@ export const AdminTicketsQueue: React.FC = () => {
 
                 {/* SLA & Health Telemetry Widget Grid */}
                 <SlaHealthTelemetry ticket={selectedTicket} />
+
+                {/* File Attachment Upload Block */}
+                <div className="bg-black/30 border border-white/5 rounded-2xl p-6 shadow-[0_4px_30px_rgba(0,0,0,0.3)] mt-6 backdrop-blur-md transition-all hover:bg-black/40">
+                  <h3 className="text-cyan-400 font-mono text-[10px] font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"></span>
+                    Attachment Uplink
+                  </h3>
+
+                  <div
+                    onClick={() => !isUploading && fileInputRef.current?.click()}
+                    className={`relative border-2 border-dashed ${isUploading ? 'border-white/5 bg-white/5 cursor-not-allowed' : 'border-white/10 hover:border-cyan-500/50 bg-slate-900/50 hover:bg-slate-900/80 cursor-pointer'} rounded-xl p-8 flex flex-col items-center justify-center transition-all group`}
+                  >
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+
+                    {isUploading ? (
+                      <div className="flex flex-col items-center justify-center space-y-3">
+                        <svg className="animate-spin h-6 w-6 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span className="text-[10px] text-cyan-300 font-mono uppercase tracking-widest animate-pulse">Transmitting Data...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-3 group-hover:bg-cyan-500/10 group-hover:border-cyan-500/30 transition-all">
+                          <span className="text-slate-400 group-hover:text-cyan-400 text-lg">↑</span>
+                        </div>
+                        <span className="text-xs font-mono text-slate-300 group-hover:text-white transition-colors">Click to transmit diagnostic files</span>
+                        <span className="text-[9px] font-mono text-slate-500 mt-2 uppercase tracking-widest">Logs, PCAPs, or Visuals</span>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Permanent Floating Add Core Data Button */}
@@ -1191,6 +1459,29 @@ export const AdminTicketsQueue: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Schedule Ticket Modal */}
+      {isScheduleModalOpen && selectedTicket && (
+        <ScheduleTicketModal
+          isOpen={isScheduleModalOpen}
+          onClose={() => setIsScheduleModalOpen(false)}
+          ticketId={selectedTicket.id}
+          onSuccess={(updatedTicket: Ticket) => {
+            setSelectedTicket(updatedTicket);
+            setToast({ message: 'Ticket successfully scheduled', type: 'success' });
+          }}
+        />
+      )}
+
+      {/* Merge Tickets Modal */}
+      {isMergeModalOpen && selectedTicket && (
+        <MergeTicketsModal
+          isOpen={isMergeModalOpen}
+          onClose={() => setIsMergeModalOpen(false)}
+          selectedTicket={selectedTicket}
+          allTickets={tickets}
+        />
       )}
     </div>
   );
