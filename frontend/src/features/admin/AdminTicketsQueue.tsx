@@ -8,7 +8,7 @@ import { SlaHealthTelemetry } from '../../components/SlaHealthTelemetry';
 import { ScheduleTicketModal } from './ScheduleTicketModal';
 import { MergeTicketsModal } from './MergeTicketsModal';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import autoTable from 'jspdf-autotable';
 
 const SERVICE_GROUPS_CONFIG = [
   {
@@ -102,30 +102,44 @@ export const AdminTicketsQueue: React.FC = () => {
     }
   };
 
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF = () => {
     if (!selectedTicket) return;
     
-    const element = document.getElementById('audit-log-print-zone');
-    if (!element) return;
-    
     try {
-      const canvas = await html2canvas(element, {
-        backgroundColor: '#020617', // slate-950
-        scale: 2,
-      });
-      
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
-      const pdf = new jsPDF({
+      const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4'
       });
       
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const tableRows = (selectedTicket.comments || []).map((comment: any, index: number) => [
+        `#${index + 1}`,
+        new Date(comment.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }),
+        comment.author?.name || 'SYSTEM',
+        comment.type === 'INTERNAL_NOTE' ? 'INTERNAL NOTE' : (comment.type || 'UNKNOWN').replace('_', ' '),
+        comment.content
+      ]);
+
+      // Add Compliance Header Block
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(14);
+      doc.text("SUPER ADMIN PORTAL - AUTOMATED AUDIT TRAIL REPORT", 14, 20);
       
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Ticket_${selectedTicket.id}_Audit_Report.pdf`);
+      doc.setFontSize(10);
+      doc.text(`Ticket ID Reference Sequence: ${selectedTicket.id}`, 14, 30);
+      doc.text(`Current Lifecycle Operational Status: ${selectedTicket.status}`, 14, 35);
+      doc.text(`Report Extraction Timestamp: ${new Date().toLocaleString()}`, 14, 40);
+
+      autoTable(doc, {
+        startY: 50,
+        head: [["INDEX", "TIMESTAMP", "AUTHOR", "TRANSMISSION TYPE", "MESSAGE LOG CONTENT"]],
+        body: tableRows,
+        styles: { font: 'courier' },
+        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], font: 'courier' },
+        columnStyles: { 4: { cellWidth: 'auto' } }
+      });
+
+      doc.save(`Ticket_${selectedTicket.id}_Audit_Report.pdf`);
     } catch (err) {
       console.error('Error generating PDF', err);
       setToast({ message: 'Failed to generate PDF', type: 'error' });
