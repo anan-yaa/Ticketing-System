@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 import { ConfigureSlaModal } from './ConfigureSlaModal';
 
@@ -7,47 +9,35 @@ export const SlaMasterLedger: React.FC = () => {
   const [filterGroup, setFilterGroup] = useState('ALL');
   const [isSlaModalOpen, setIsSlaModalOpen] = useState(false);
 
-  const [slaRules, setSlaRules] = useState([
-    {
-      id: 'cloud_incident',
-      label: '☁️ CLOUD - INCIDENT',
-      serviceGroup: 'CLOUD',
-      ticketType: 'INCIDENT',
-      tiers: [
-        { level: 'P1', desc: 'Critical Outage / Server Down', resp: '15 Mins', res: '2 Hours' },
-        { level: 'P2', desc: 'High Impact / Degradation', resp: '30 Mins', res: '4 Hours' },
-        { level: 'P3', desc: 'Normal Priority Request', resp: '2 Hours', res: '24 Hours' },
-        { level: 'P4', desc: 'Low Priority Inquiry', resp: '24 Hours', res: '168 Hours' },
-        { level: 'P5', desc: 'Cosmetic UI Adjustments', resp: '72 Hours', res: '14 Days' },
-      ]
-    },
-    {
-      id: 'mi_incident',
-      label: '🌐 MI - INCIDENT',
-      serviceGroup: 'MI',
-      ticketType: 'INCIDENT',
-      tiers: [
-        { level: 'P1', desc: 'Total Routing Failure', resp: '10 Mins', res: '1 Hour 30 Mins' },
-        { level: 'P2', desc: 'Subnet Unreachable', resp: '20 Mins', res: '3 Hours' },
-        { level: 'P3', desc: 'Intermittent Latency', resp: '1 Hour', res: '12 Hours' },
-        { level: 'P4', desc: 'Port Activation', resp: '12 Hours', res: '72 Hours' },
-      ]
-    },
-    {
-      id: 'rims_maintenance',
-      label: '⚙️ RIMS - MAINTENANCE',
-      serviceGroup: 'RIMS',
-      ticketType: 'MAINTENANCE',
-      tiers: [
-        { level: 'P1', desc: 'Emergency Patching', resp: '1 Hour', res: '8 Hours' },
-        { level: 'P2', desc: 'Zero-day Mitigation', resp: '2 Hours', res: '24 Hours' },
-        { level: 'P3', desc: 'Routine Backup Check', resp: '8 Hours', res: '48 Hours' },
-        { level: 'P4', desc: 'Scheduled Audits', resp: '48 Hours', res: '336 Hours' },
-      ]
-    }
-  ]);
+  const queryClient = useQueryClient();
 
-  const filteredRules = filterGroup === 'ALL' ? slaRules : slaRules.filter(b => b.serviceGroup === filterGroup);
+  const { data: dbSlaRules = [] } = useQuery({
+    queryKey: ['slaComplianceRules'],
+    queryFn: async () => {
+      const res = await api.get('/master-config/sla-rules');
+      return res.data;
+    }
+  });
+
+  const createSlaMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return api.post('/master-config/sla-rules', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['slaComplianceRules'] });
+      setIsSlaModalOpen(false);
+    }
+  });
+
+  const slaRules = dbSlaRules.map((rule: any) => ({
+    id: rule.id,
+    label: `${rule.serviceGroup} - ${rule.ticketType}`,
+    serviceGroup: rule.serviceGroup,
+    ticketType: rule.ticketType,
+    tiers: rule.tiers || []
+  }));
+
+  const filteredRules = filterGroup === 'ALL' ? slaRules : slaRules.filter((b: any) => b.serviceGroup === filterGroup);
 
   const sortedRules = [...filteredRules].sort((a, b) => {
     // Step 1: Compare Service Group Names (e.g., CLOUD vs NETWORK)
@@ -141,29 +131,21 @@ export const SlaMasterLedger: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                  {block.tiers.map((tier, idx) => {
-                    const colorsList = ['rose', 'orange', 'amber', 'emerald', 'cyan', 'indigo', 'purple'];
-                    const colors = colorsList[idx % colorsList.length];
-
-                    return (
-                      <tr key={tier.level} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex w-8 h-8 rounded-full bg-${colors}-500/10 text-${colors}-600 dark:text-${colors}-400 items-center justify-center font-bold font-mono text-xs border border-${colors}-500/20 shadow-sm`}>
+                  {block.tiers
+                    ?.sort((a: any, b: any) => a.level.localeCompare(b.level))
+                    ?.map((tier: any) => (
+                      <tr key={tier.id} className="border-b border-slate-900 text-sm hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
+                        <td className="py-3 px-6 font-bold font-mono">
+                          <span className="inline-flex w-8 h-8 rounded-full bg-slate-500/10 text-slate-700 dark:text-slate-300 items-center justify-center font-bold font-mono text-xs border border-slate-500/20 shadow-sm">
                             {tier.level}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className="text-xs font-bold theme-heading-text tracking-wide">{tier.desc}</span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <span className="text-xs font-bold font-mono text-slate-700 dark:text-slate-300">{tier.resp}</span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <span className="text-xs font-bold font-mono text-slate-700 dark:text-slate-300">{tier.res}</span>
-                        </td>
+                        <td className="py-3 px-6 text-slate-700 dark:text-slate-300 font-bold theme-heading-text">{tier.description || tier.name}</td>
+                        <td className="py-3 px-6 text-right text-emerald-600 dark:text-emerald-400 font-mono text-xs">{tier.respM + (tier.respH || 0) * 60} Mins</td>
+                        <td className="py-3 px-6 text-right text-cyan-600 dark:text-cyan-400 font-mono text-xs">{tier.resH + (tier.resM ? tier.resM / 60 : 0)} Hours</td>
                       </tr>
-                    );
-                  })}
+                    ))
+                  }
                 </tbody>
               </table>
             </div>
@@ -175,20 +157,7 @@ export const SlaMasterLedger: React.FC = () => {
         <ConfigureSlaModal
           onClose={() => setIsSlaModalOpen(false)}
           onSave={(payload) => {
-            const newRule = {
-              id: `${payload.serviceGroup.toLowerCase()}_${payload.ticketType.toLowerCase()}`,
-              label: `${payload.serviceGroup.toUpperCase()} - ${payload.ticketType.toUpperCase()}`,
-              serviceGroup: payload.serviceGroup,
-              ticketType: payload.ticketType,
-              tiers: payload.tiers.map((t: any) => ({
-                level: t.level,
-                desc: t.description || t.name,
-                resp: `${t.responseHours > 0 ? t.responseHours + ' Hours ' : ''}${t.responseMins > 0 || t.responseHours === 0 ? t.responseMins + ' Mins' : ''}`.trim(),
-                res: `${t.resolutionHours > 0 ? t.resolutionHours + ' Hours ' : ''}${t.resolutionMins > 0 || t.resolutionHours === 0 ? t.resolutionMins + ' Mins' : ''}`.trim()
-              }))
-            };
-            setSlaRules([...slaRules, newRule]);
-            setIsSlaModalOpen(false);
+            createSlaMutation.mutate(payload);
           }}
         />
       )}

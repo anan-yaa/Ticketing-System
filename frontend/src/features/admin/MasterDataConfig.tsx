@@ -28,7 +28,7 @@ export const MasterDataConfig: React.FC = () => {
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [expandedSlaRule, setExpandedSlaRule] = useState<string | null>(null);
+
 
   const { data: services = [], isLoading: loadingServices } = useQuery<ConfigItem[]>({
     queryKey: ['master-groups'],
@@ -39,9 +39,9 @@ export const MasterDataConfig: React.FC = () => {
   });
 
   const { data: slaRules = [], isLoading: loadingSla } = useQuery<any[]>({
-    queryKey: ['master-sla'],
+    queryKey: ['slaComplianceRules'],
     queryFn: async () => {
-      const res = await api.get('/master-config/sla');
+      const res = await api.get('/master-config/sla-rules');
       return res.data;
     },
   });
@@ -159,7 +159,21 @@ export const MasterDataConfig: React.FC = () => {
     },
   });
 
-
+  // Mutations for SLA
+  const createSlaMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return api.post('/master-config/sla-rules', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['slaComplianceRules'] });
+      setIsSlaModalOpen(false);
+      showToast('SLA Rule saved successfully', 'success');
+    },
+    onError: (err: any) => {
+      const errMsg = err.response?.data?.message || 'Failed to save SLA Rule';
+      showToast(errMsg, 'error');
+    }
+  });
 
   // Mutations for Toggle
   const toggleTypeMutation = useMutation({
@@ -203,7 +217,7 @@ export const MasterDataConfig: React.FC = () => {
     const name = newCategory.trim().toUpperCase();
     const description = newCategoryDesc.trim() || undefined;
     console.log("🚀 [FRONTEND SUBMIT] Packaging payload data:", { name, description });
-    
+
     try {
       const result = await createCategoryMutation.mutateAsync({ name, description });
       console.log("⚡ [NETWORK RESPONSE] Raw string returned from server:", result);
@@ -373,7 +387,7 @@ export const MasterDataConfig: React.FC = () => {
                 services.map((group) => (
                   <div key={group.id} className="w-full flex items-center justify-between p-4 mb-3 rounded-xl border border-slate-200/40 dark:border-white/5 bg-slate-50/40 dark:bg-slate-950/30 hover:bg-slate-50/80 dark:hover:bg-slate-950/50 transition-all duration-200">
                     <div className="flex items-center gap-4">
-                      <div className="text-indigo-500 text-xs">◆</div> 
+                      <div className="text-indigo-500 text-xs">◆</div>
                       <div className="flex flex-col gap-1">
                         <h3 className="text-sm font-semibold tracking-wide text-slate-900 dark:text-slate-100 uppercase">
                           {group.name}
@@ -424,47 +438,20 @@ export const MasterDataConfig: React.FC = () => {
             {/* Dynamically Fetched SLA Rules List */}
             {loadingSla ? (
               <div className="text-center py-6 text-slate-500 font-mono text-xs animate-pulse">Loading SLA Rules...</div>
-            ) : slaRules.length === 0 ? (
-              <div className="text-center py-6 text-slate-500 font-mono text-xs">No SLA Rules defined.</div>
-            ) : slaRules.map((rule) => (
-              <div key={rule.id} className="theme-card-panel rounded-xl border border-slate-200/50 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 overflow-hidden transition-all duration-300">
-                <button
-                  onClick={() => setExpandedSlaRule(expandedSlaRule === rule.id ? null : rule.id)}
-                  className="w-full p-4 flex justify-between items-center group cursor-pointer hover:bg-slate-200/30 dark:hover:bg-white/5 transition-colors"
-                >
-                  <h4 className="text-sm font-bold theme-heading-text uppercase tracking-wider group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors flex items-center gap-3">
-                    <span className="text-indigo-500 text-lg">❖</span> {rule.serviceGroup} - {rule.ticketType}
-                  </h4>
-                  <span className={`transform transition-transform text-slate-500 dark:text-slate-400 font-mono text-[10px] ${expandedSlaRule === rule.id ? 'rotate-180' : ''}`}>▼</span>
-                </button>
-
-                {expandedSlaRule === rule.id && (
-                  <div className="p-4 border-t border-slate-200/50 dark:border-white/5 bg-slate-100/30 dark:bg-black/20 space-y-3">
-                    {(rule.tiers || []).sort((a: any, b: any) => a.level.localeCompare(b.level)).map((tier: any) => (
-                      <div key={tier.id} className="flex justify-between items-center bg-white/40 dark:bg-white/5 p-3 rounded-lg border border-slate-200/50 dark:border-white/5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 font-bold font-mono text-xs">{tier.level}</div>
-                          <div>
-                            <h5 className="text-[11px] font-bold theme-heading-text uppercase tracking-wider">{tier.name}</h5>
-                            {tier.description && <p className="text-[9px] text-slate-500">{tier.description}</p>}
-                          </div>
-                        </div>
-                        <div className="flex gap-8 items-center">
-                          <div className="text-right">
-                            <span className="block text-[8px] text-slate-500 uppercase tracking-widest font-mono mb-1">Response</span>
-                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 font-mono">{tier.respH > 0 ? `${tier.respH}H ` : ''}{tier.respM}M</span>
-                          </div>
-                          <div className="text-right">
-                            <span className="block text-[8px] text-slate-500 uppercase tracking-widest font-mono mb-1">Resolution</span>
-                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 font-mono">{tier.resH > 0 ? `${tier.resH}H ` : ''}{tier.resM > 0 || tier.resH === 0 ? `${tier.resM}M` : ''}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+            ) : slaRules && slaRules.length > 0 ? (
+              slaRules.map((rule: any) => (
+                <div key={rule.id} className="flex justify-between items-center p-3 border-b border-slate-200 dark:border-slate-800">
+                  <span className="font-mono text-sm uppercase text-slate-700 dark:text-slate-200">
+                    🔹 {rule.serviceGroup} - {rule.ticketType}
+                  </span>
+                  <span className="text-xs text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-950/40 px-2 py-0.5 rounded-full border border-cyan-200 dark:border-cyan-800/40">
+                    {rule.tiers?.length || 0} TIERS
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="text-slate-500 text-center py-8">No SLA Rules defined in the database.</div>
+            )}
 
             <div className="pt-6 pb-2 flex justify-center">
               <button
@@ -484,9 +471,7 @@ export const MasterDataConfig: React.FC = () => {
         <ConfigureSlaModal
           onClose={() => setIsSlaModalOpen(false)}
           onSave={(payload) => {
-            setIsSlaModalOpen(false);
-            showToast('Saved successfully', 'success');
-            console.log(payload);
+            createSlaMutation.mutate(payload);
           }}
         />
       )}

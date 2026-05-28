@@ -161,4 +161,36 @@ export class MasterConfigService {
       orderBy: [{ serviceGroup: 'asc' }, { ticketType: 'asc' }],
     });
   }
+
+  async createSlaRule(dto: any) {
+    // Basic validation / uniqueness could be added here if needed
+    const existing = await this.prisma.slaRule.findFirst({
+      where: {
+        serviceGroup: dto.serviceGroup,
+        ticketType: dto.ticketType
+      }
+    });
+    
+    if (existing) {
+      throw new ConflictException(`SLA Rule for ${dto.serviceGroup} - ${dto.ticketType} already exists`);
+    }
+
+    return this.prisma.slaRule.create({
+      data: {
+        serviceGroup: dto.serviceGroup,
+        ticketType: dto.ticketType,
+        tiers: {
+          create: dto.tiers.map((t: any) => ({
+            level: t.level,
+            name: t.name || t.description || 'Tier',
+            description: t.description || '',
+            respH: t.responseHours || 0,
+            respM: t.responseMins || 0,
+            resH: t.resolutionHours || 0,
+            resM: t.resolutionMins || 0
+          }))
+        }
+      }
+    });
+  }
 }

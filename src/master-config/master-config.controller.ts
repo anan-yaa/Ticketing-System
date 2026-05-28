@@ -83,8 +83,14 @@ export class MasterConfigController {
     return this.configService.toggleService(id);
   }
 
-  @Get('sla')
+  @Get('sla-rules')
   async getSlaRules() {
     return this.configService.getSlaRules();
+  }
+
+  @Post('sla-rules')
+  @Permissions('MASTER_DATA_UPDATE')
+  async createSlaRule(@Body() dto: any) {
+    return this.configService.createSlaRule(dto);
   }
 }

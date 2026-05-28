@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import api from '../../api/axios';
 
 interface ConfigureSlaModalProps {
   onClose: () => void;
@@ -6,8 +8,24 @@ interface ConfigureSlaModalProps {
 }
 
 export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, onSave }) => {
-  const [matrixServiceGroup, setMatrixServiceGroup] = useState('RIMS');
-  const [matrixTicketType, setMatrixTicketType] = useState('Incident');
+  const [matrixServiceGroup, setMatrixServiceGroup] = useState('');
+  const [matrixTicketType, setMatrixTicketType] = useState('');
+
+  const { data: ticketTypes, isLoading: isTypesLoading } = useQuery({
+    queryKey: ['masterTicketTypes'],
+    queryFn: async () => {
+      const res = await api.get('/master-config/types');
+      return res.data;
+    }
+  });
+
+  const { data: assignmentGroups, isLoading } = useQuery({
+    queryKey: ['masterAssignmentGroups'],
+    queryFn: async () => {
+      const res = await api.get('/master-config/groups');
+      return res.data;
+    }
+  });
   const [matrixTiers, setMatrixTiers] = useState([
     { level: 'P1', name: 'CRITICAL THREAT', description: '', responseHours: 0, responseMins: 15, resolutionHours: 4, resolutionMins: 0 },
     { level: 'P2', name: 'HIGH EFFICIENCY', description: '', responseHours: 0, responseMins: 30, resolutionHours: 8, resolutionMins: 0 },
@@ -61,15 +79,19 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
               <select 
                 value={matrixServiceGroup}
                 onChange={(e) => setMatrixServiceGroup(e.target.value)}
-                className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-indigo-500 theme-heading-text outline-none font-mono text-xs uppercase"
+                disabled={isLoading}
+                className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-indigo-500 theme-heading-text outline-none font-mono text-xs uppercase truncate max-w-full"
               >
-                <option value="RIMS" className="w-full py-2 px-3">RIMS - Remote Infrastructure</option>
-                <option value="MI" className="w-full py-2 px-3">MI - Management Infrastructure</option>
-                <option value="DATA CENTER" className="w-full py-2 px-3">DATA CENTER</option>
-                <option value="DS" className="w-full py-2 px-3">DS - Data Services</option>
-                <option value="TSS" className="w-full py-2 px-3">TSS - Technical Support Services</option>
-                <option value="DATABASE" className="w-full py-2 px-3">DATABASE</option>
-                <option value="CLOUD" className="w-full py-2 px-3">CLOUD</option>
+                <option value="">-- SELECT TARGET SERVICE GROUP --</option>
+                {assignmentGroups
+                  ?.filter((group: any) => group.isActive)
+                  ?.sort((a: any, b: any) => a.name.localeCompare(b.name))
+                  ?.map((group: any) => (
+                    <option key={group.id} value={group.name}>
+                      {group.name}
+                    </option>
+                  ))
+                }
               </select>
             </div>
             <div>
@@ -77,16 +99,19 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
               <select 
                 value={matrixTicketType}
                 onChange={(e) => setMatrixTicketType(e.target.value)}
+                disabled={isTypesLoading}
                 className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-indigo-500 theme-heading-text outline-none font-mono text-xs uppercase"
               >
-                <option value="Incident" className="w-full py-2 px-3">Incident</option>
-                <option value="Service Req" className="w-full py-2 px-3">Service Request</option>
-                <option value="Proactive Notifications" className="w-full py-2 px-3">Proactive Notifications</option>
-                <option value="Reports" className="w-full py-2 px-3">Reports</option>
-                <option value="Information" className="w-full py-2 px-3">Information</option>
-                <option value="Notification" className="w-full py-2 px-3">Notification</option>
-                <option value="Junk" className="w-full py-2 px-3">Junk</option>
-                <option value="Maintenance" className="w-full py-2 px-3">Maintenance</option>
+                <option value="">-- SELECT TARGET TICKET TYPE --</option>
+                {ticketTypes
+                  ?.filter((type: any) => type.isActive)
+                  ?.sort((a: any, b: any) => a.name.localeCompare(b.name))
+                  ?.map((type: any) => (
+                    <option key={type.id} value={type.name}>
+                      {type.name.toUpperCase()}
+                    </option>
+                  ))
+                }
               </select>
             </div>
           </div>
@@ -98,8 +123,12 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
               const colorsList = ['rose', 'orange', 'amber', 'emerald', 'cyan', 'indigo', 'purple'];
               const colors = colorsList[index % colorsList.length];
 
+              let wrapperClass = `w-full p-4 rounded-xl border border-${colors}-500/20 bg-${colors}-500/5 mb-4 group`;
+              if (index === 0) wrapperClass = "w-full p-5 rounded-xl border border-rose-200 dark:border-rose-500/40 bg-rose-50/30 dark:bg-rose-950/10 mb-4 group";
+              else if (index === 1) wrapperClass = "w-full p-5 rounded-xl border border-amber-200 dark:border-amber-500/40 bg-amber-50/30 dark:bg-amber-950/10 mb-4 group";
+
               return (
-                <div key={index} className={`relative flex flex-col xl:flex-row xl:items-center justify-between gap-4 w-full p-4 rounded-xl border border-${colors}-500/20 bg-${colors}-500/5 group`}>
+                <div key={index} className={`relative flex flex-col xl:flex-row xl:items-center justify-between gap-4 ${wrapperClass}`}>
                   {matrixTiers.length > 1 && (
                     <button 
                       onClick={() => removeMatrixTier(index)} 
