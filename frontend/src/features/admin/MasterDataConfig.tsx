@@ -25,6 +25,9 @@ export const MasterDataConfig: React.FC = () => {
   const [newCategoryDesc, setNewCategoryDesc] = useState('');
 
   const [isSlaModalOpen, setIsSlaModalOpen] = useState(false);
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [expandedSlaRule, setExpandedSlaRule] = useState<string | null>(null);
 
   const SLA_COMBINATIONS = [
@@ -213,12 +216,20 @@ export const MasterDataConfig: React.FC = () => {
         {/* Ticket Types Panel */}
         <div className="theme-card-panel rounded-2xl p-6 flex flex-col justify-between h-full transition-colors duration-300">
           <div>
-            <h3 className="text-sm font-bold text-cyan-400 font-mono uppercase tracking-wider mb-4 pb-2 border-b border-white/5 flex items-center justify-between">
-              <span>Ticket Types</span>
-              <span className="text-[10px] bg-cyan-500/15 text-cyan-300 px-2.5 py-0.5 rounded-full">
-                {types.length} Defined
-              </span>
-            </h3>
+            <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-white/5 pb-4 mb-4">
+              <h3 className="text-sm font-bold text-cyan-400 font-mono uppercase tracking-wider flex items-center gap-2">
+                <span>Ticket Types</span>
+                <span className="text-[10px] bg-cyan-500/15 text-cyan-300 px-2.5 py-0.5 rounded-full">
+                  {types.length} Defined
+                </span>
+              </h3>
+              <button
+                onClick={() => setIsTypeModalOpen(true)}
+                className="px-4 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-400 text-indigo-400 dark:text-indigo-300 font-mono text-[10px] font-bold uppercase rounded-lg transition-all shadow-[0_0_10px_rgba(99,102,241,0.1)] hover:shadow-[0_0_15px_rgba(99,102,241,0.3)] tracking-wider"
+              >
+                ➕ ADD NEW TYPE
+              </button>
+            </div>
 
             {/* List */}
             <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1 mb-6">
@@ -255,43 +266,25 @@ export const MasterDataConfig: React.FC = () => {
               )}
             </div>
           </div>
-
-          {/* Form */}
-          <form onSubmit={handleAddType} className="space-y-3 mt-auto pt-4 border-t border-white/5">
-            <input
-              type="text"
-              required
-              value={newType}
-              onChange={(e) => setNewType(e.target.value)}
-              placeholder="Type Name (e.g. Incident)"
-              className="w-full px-4 py-2.5 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 theme-heading-text outline-none font-mono text-xs uppercase"
-            />
-            <input
-              type="text"
-              value={newTypeDesc}
-              onChange={(e) => setNewTypeDesc(e.target.value)}
-              placeholder="Optional Description"
-              className="w-full px-4 py-2.5 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 theme-heading-text outline-none font-mono text-xs"
-            />
-            <button
-              type="submit"
-              disabled={createTypeMutation.isPending}
-              className="w-full py-2.5 bg-cyan-600/20 border border-cyan-500/50 hover:bg-cyan-500 text-cyan-300 hover:text-white font-bold rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.15)] hover:shadow-[0_0_25px_rgba(6,182,212,0.4)] uppercase tracking-widest text-[10px] font-mono disabled:opacity-50"
-            >
-              {createTypeMutation.isPending ? 'Adding..' : '+ Add New Type'}
-            </button>
-          </form>
         </div>
 
         {/* Categories Panel */}
         <div className="theme-card-panel rounded-2xl p-6 flex flex-col justify-between h-full transition-colors duration-300">
           <div>
-            <h3 className="text-sm font-bold text-cyan-400 font-mono uppercase tracking-wider mb-4 pb-2 border-b border-white/5 flex items-center justify-between">
-              <span>EPO Categories</span>
-              <span className="text-[10px] bg-cyan-500/15 text-cyan-300 px-2.5 py-0.5 rounded-full">
-                {categories.length} Defined
-              </span>
-            </h3>
+            <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-white/5 pb-4 mb-4">
+              <h3 className="text-sm font-bold text-cyan-400 font-mono uppercase tracking-wider flex items-center gap-2">
+                <span>EPO Categories</span>
+                <span className="text-[10px] bg-cyan-500/15 text-cyan-300 px-2.5 py-0.5 rounded-full">
+                  {categories.length} Defined
+                </span>
+              </h3>
+              <button
+                onClick={() => setIsCategoryModalOpen(true)}
+                className="px-4 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-400 text-indigo-400 dark:text-indigo-300 font-mono text-[10px] font-bold uppercase rounded-lg transition-all shadow-[0_0_10px_rgba(99,102,241,0.1)] hover:shadow-[0_0_15px_rgba(99,102,241,0.3)] tracking-wider"
+              >
+                ➕ ADD NEW CATEGORY
+              </button>
+            </div>
 
             {/* List */}
             <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1 mb-6">
@@ -328,43 +321,25 @@ export const MasterDataConfig: React.FC = () => {
               )}
             </div>
           </div>
-
-          {/* Form */}
-          <form onSubmit={handleAddCategory} className="space-y-3 mt-auto pt-4 border-t border-white/5">
-            <input
-              type="text"
-              required
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-              placeholder="Category Name (e.g. Access Policy)"
-              className="w-full px-4 py-2.5 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 theme-heading-text outline-none font-mono text-xs uppercase"
-            />
-            <input
-              type="text"
-              value={newCategoryDesc}
-              onChange={(e) => setNewCategoryDesc(e.target.value)}
-              placeholder="Optional Description"
-              className="w-full px-4 py-2.5 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 theme-heading-text outline-none font-mono text-xs"
-            />
-            <button
-              type="submit"
-              disabled={createCategoryMutation.isPending}
-              className="w-full py-2.5 bg-cyan-600/20 border border-cyan-500/50 hover:bg-cyan-500 text-cyan-300 hover:text-white font-bold rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.15)] hover:shadow-[0_0_25px_rgba(6,182,212,0.4)] uppercase tracking-widest text-[10px] font-mono disabled:opacity-50"
-            >
-              {createCategoryMutation.isPending ? 'Adding..' : '+ Add New Category'}
-            </button>
-          </form>
         </div>
 
         {/* Master Service Groups Panel */}
         <div className="theme-card-panel rounded-2xl p-6 flex flex-col justify-between h-full transition-colors duration-300">
           <div>
-            <h3 className="text-sm font-bold text-cyan-400 font-mono uppercase tracking-wider mb-4 pb-2 border-b border-white/5 flex items-center justify-between">
-              <span>MASTER SERVICE GROUPS</span>
-              <span className="text-[10px] bg-cyan-500/15 text-cyan-300 px-2.5 py-0.5 rounded-full">
-                {serviceGroups.length} Defined
-              </span>
-            </h3>
+            <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-white/5 pb-4 mb-4">
+              <h3 className="text-sm font-bold text-cyan-400 font-mono uppercase tracking-wider flex items-center gap-2">
+                <span>MASTER SERVICE GROUPS</span>
+                <span className="text-[10px] bg-cyan-500/15 text-cyan-300 px-2.5 py-0.5 rounded-full">
+                  {serviceGroups.length} Defined
+                </span>
+              </h3>
+              <button
+                onClick={() => setIsGroupModalOpen(true)}
+                className="px-4 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-400 text-indigo-400 dark:text-indigo-300 font-mono text-[10px] font-bold uppercase rounded-lg transition-all shadow-[0_0_10px_rgba(99,102,241,0.1)] hover:shadow-[0_0_15px_rgba(99,102,241,0.3)] tracking-wider"
+              >
+                ➕ ADD NEW GROUP
+              </button>
+            </div>
 
             {/* List */}
             <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1 mb-6">
@@ -405,31 +380,6 @@ export const MasterDataConfig: React.FC = () => {
               )}
             </div>
           </div>
-
-          {/* Form */}
-          <form onSubmit={handleAddGroup} className="space-y-3 mt-auto pt-4 border-t border-white/5">
-            <input
-              type="text"
-              required
-              value={newGroup}
-              onChange={(e) => setNewGroup(e.target.value)}
-              placeholder="SERVICE GROUP NAME (E.G. CLOUD, NETWORK, INFRA)"
-              className="w-full px-4 py-2.5 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 theme-heading-text outline-none font-mono text-xs uppercase"
-            />
-            <input
-              type="text"
-              value={newGroupDesc}
-              onChange={(e) => setNewGroupDesc(e.target.value)}
-              placeholder="Optional Description"
-              className="w-full px-4 py-2.5 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 theme-heading-text outline-none font-mono text-xs"
-            />
-            <button
-              type="submit"
-              className="w-full py-2.5 bg-cyan-600/20 border border-cyan-500/50 hover:bg-cyan-500 text-cyan-300 hover:text-white font-bold rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.15)] hover:shadow-[0_0_25px_rgba(6,182,212,0.4)] uppercase tracking-widest text-[10px] font-mono"
-            >
-              + Add New Group
-            </button>
-          </form>
         </div>
 
         {/* SLA Registry Builder Panel */}
@@ -515,6 +465,90 @@ export const MasterDataConfig: React.FC = () => {
             console.log(payload);
           }}
         />
+      )}
+
+      {isGroupModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsGroupModalOpen(false)} />
+          <div className="relative theme-card-panel w-full max-w-md rounded-2xl shadow-2xl border border-slate-300 dark:border-white/10 flex flex-col bg-white dark:bg-slate-900">
+            <div className="p-6 border-b border-slate-200 dark:border-white/5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-t-2xl z-10 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold theme-heading-text uppercase tracking-widest">ADD NEW GROUP</h3>
+              </div>
+              <button onClick={() => setIsGroupModalOpen(false)} className="text-slate-400 hover:text-white transition-colors">✕</button>
+            </div>
+            <form onSubmit={(e) => { handleAddGroup(e); setIsGroupModalOpen(false); }} className="p-6 space-y-4">
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 font-bold">Group Name</label>
+                <input required value={newGroup} onChange={e => setNewGroup(e.target.value)} className="w-full px-4 py-3 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-indigo-500 theme-heading-text outline-none font-mono text-xs uppercase" placeholder="e.g. INFRASTRUCTURE" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 font-bold">Description</label>
+                <textarea value={newGroupDesc} onChange={e => setNewGroupDesc(e.target.value)} className="w-full px-4 py-3 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-indigo-500 theme-heading-text outline-none font-mono text-xs" rows={3} placeholder="Optional details..." />
+              </div>
+              <div className="pt-4 flex justify-end gap-4">
+                <button type="button" onClick={() => setIsGroupModalOpen(false)} className="px-6 py-2.5 bg-slate-200 dark:bg-white/5 hover:bg-slate-300 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 font-mono text-xs font-bold uppercase rounded-xl transition-all tracking-widest">CANCEL</button>
+                <button type="submit" className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold uppercase rounded-xl shadow-lg transition-all tracking-widest">SAVE</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isTypeModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsTypeModalOpen(false)} />
+          <div className="relative theme-card-panel w-full max-w-md rounded-2xl shadow-2xl border border-slate-300 dark:border-white/10 flex flex-col bg-white dark:bg-slate-900">
+            <div className="p-6 border-b border-slate-200 dark:border-white/5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-t-2xl z-10 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold theme-heading-text uppercase tracking-widest">ADD NEW TYPE</h3>
+              </div>
+              <button onClick={() => setIsTypeModalOpen(false)} className="text-slate-400 hover:text-white transition-colors">✕</button>
+            </div>
+            <form onSubmit={(e) => { handleAddType(e); setIsTypeModalOpen(false); }} className="p-6 space-y-4">
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 font-bold">Type Name</label>
+                <input required value={newType} onChange={e => setNewType(e.target.value)} className="w-full px-4 py-3 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-indigo-500 theme-heading-text outline-none font-mono text-xs uppercase" placeholder="e.g. INCIDENT" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 font-bold">Description</label>
+                <textarea value={newTypeDesc} onChange={e => setNewTypeDesc(e.target.value)} className="w-full px-4 py-3 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-indigo-500 theme-heading-text outline-none font-mono text-xs" rows={3} placeholder="Optional details..." />
+              </div>
+              <div className="pt-4 flex justify-end gap-4">
+                <button type="button" onClick={() => setIsTypeModalOpen(false)} className="px-6 py-2.5 bg-slate-200 dark:bg-white/5 hover:bg-slate-300 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 font-mono text-xs font-bold uppercase rounded-xl transition-all tracking-widest">CANCEL</button>
+                <button type="submit" disabled={createTypeMutation.isPending} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold uppercase rounded-xl shadow-lg transition-all tracking-widest disabled:opacity-50">SAVE</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsCategoryModalOpen(false)} />
+          <div className="relative theme-card-panel w-full max-w-md rounded-2xl shadow-2xl border border-slate-300 dark:border-white/10 flex flex-col bg-white dark:bg-slate-900">
+            <div className="p-6 border-b border-slate-200 dark:border-white/5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-t-2xl z-10 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold theme-heading-text uppercase tracking-widest">ADD NEW CATEGORY</h3>
+              </div>
+              <button onClick={() => setIsCategoryModalOpen(false)} className="text-slate-400 hover:text-white transition-colors">✕</button>
+            </div>
+            <form onSubmit={(e) => { handleAddCategory(e); setIsCategoryModalOpen(false); }} className="p-6 space-y-4">
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 font-bold">Category Name</label>
+                <input required value={newCategory} onChange={e => setNewCategory(e.target.value)} className="w-full px-4 py-3 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-indigo-500 theme-heading-text outline-none font-mono text-xs uppercase" placeholder="e.g. ACCESS POLICY" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 font-bold">Description</label>
+                <textarea value={newCategoryDesc} onChange={e => setNewCategoryDesc(e.target.value)} className="w-full px-4 py-3 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-indigo-500 theme-heading-text outline-none font-mono text-xs" rows={3} placeholder="Optional details..." />
+              </div>
+              <div className="pt-4 flex justify-end gap-4">
+                <button type="button" onClick={() => setIsCategoryModalOpen(false)} className="px-6 py-2.5 bg-slate-200 dark:bg-white/5 hover:bg-slate-300 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 font-mono text-xs font-bold uppercase rounded-xl transition-all tracking-widest">CANCEL</button>
+                <button type="submit" disabled={createCategoryMutation.isPending} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold uppercase rounded-xl shadow-lg transition-all tracking-widest disabled:opacity-50">SAVE</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
