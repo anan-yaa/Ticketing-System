@@ -42,7 +42,7 @@ async function bootstrap() {
   const roles = [
     { name: 'SUPER_ADMIN', description: 'Super Administrator with full system control', isSystem: true },
     { name: 'ADMIN', description: 'Administrator with operational control', isSystem: true },
-    { name: 'CUSTOMER', description: 'External customer accessing system features', isSystem: true }
+    { name: 'USER', description: 'External user accessing system features', isSystem: true }
   ];
 
   for (const r of roles) {
@@ -159,6 +159,7 @@ async function bootstrap() {
     { name: 'RIMS', description: 'Remote Infrastructure Management Services' },
     { name: 'MSS', description: 'Managed Security Services' },
     { name: 'WPE', description: 'Workplace Endpoints' },
+    { name: 'MAINTENANCE', description: 'MAINTENANCE - SYSTEM INFRASTRUCTURE & DISPATCH' },
   ];
 
   const servicesMap: { [key: string]: string } = {};

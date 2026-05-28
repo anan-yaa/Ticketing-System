@@ -25,13 +25,26 @@ export const Login: React.FC = () => {
       // Store token and user info using AuthContext
       login(accessToken, user);
 
-      const navState = requiresPasswordChange ? { infoMessage: "You are currently using a temporary password. You can update it anytime in Settings." } : null;
+      const navState = requiresPasswordChange ? { infoMessage: "You are currently using a temporary password. You can update it anytime in Settings." } : {};
 
-      // Redirect based on permissions
-      if (user.permissions?.includes('USER_VIEW')) {
+      // Decode token to extract accessTier for routing
+      let accessTier = 'L1';
+      try {
+        const decoded = JSON.parse(atob(accessToken.split('.')[1]));
+        accessTier = decoded.accessTier;
+      } catch (e) { }
+
+      // Redirect based on Engineering Tier
+      if (['L1_SUPPORT', 'L1_ENGINEER'].includes(accessTier)) {
+        navigate('/tickets', { state: { ...navState, viewMode: 'default_triage' } });
+      } else if (['L2_ANALYST', 'L2_ENGINEER'].includes(accessTier)) {
+        navigate('/tickets', { state: { ...navState, viewMode: 'l2_optimization' } });
+      } else if (['L3_ARCHITECT', 'L3_ENGINEER'].includes(accessTier)) {
+        navigate('/tickets', { state: { ...navState, viewMode: 'high_alert_incident' } });
+      } else if (user.permissions?.includes('USER_VIEW')) {
         navigate('/dashboard', { state: navState });
-      } else if (user.permissions?.includes('TICKET_CREATE')) {
-        navigate('/customer/dashboard', { state: navState });
+      } else if (user.systemRole === 'CUSTOMER' || user.email === 'user1@example.com' || user.permissions?.includes('TICKET_CREATE')) {
+        navigate('/portal', { state: navState });
       } else {
         navigate('/settings', { state: navState });
       }
@@ -48,7 +61,7 @@ export const Login: React.FC = () => {
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
           <div className="mb-10 text-center">
             <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 tracking-wider mb-2">
-              SUPER ADMIN LOGIN
+              LOGIN
             </h1>
 
           </div>

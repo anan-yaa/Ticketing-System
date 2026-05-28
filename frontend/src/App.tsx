@@ -5,10 +5,11 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import ProfileSettings from './features/profile/ProfileSettings';
 import ChangePassword from './features/profile/ChangePassword';
 import { UnauthorizedPage } from './components/UnauthorizedPage';
-import CustomerTicketPortal from './features/customer/CustomerTicketPortal';
+// import CustomerTicketPortal from './features/customer/CustomerTicketPortal';
 import MainLayout from './components/MainLayout';
 import Dashboard from './features/admin/Dashboard';
 import { AdminTicketsQueue } from './features/admin/AdminTicketsQueue';
+import UserPortal from './pages/UserPortal';
 
 function App() {
   return (
@@ -19,8 +20,8 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
           
-          {/* Main Layout Protected Routes */}
-          <Route element={<ProtectedRoute />}>
+          {/* Main Layout Protected Routes (Admins & Engineers Only) */}
+          <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'L1_ENGINEER', 'L2_ENGINEER', 'L3_ENGINEER', 'MANAGER']} />}>
             <Route element={<MainLayout />}>
               <Route element={<ProtectedRoute requiredPermission="USER_VIEW" />}>
                 <Route path="/dashboard" element={<Dashboard />} />
@@ -38,7 +39,8 @@ function App() {
           </Route>
           
           <Route element={<ProtectedRoute requiredPermission="TICKET_CREATE" />}>
-            <Route path="/customer/dashboard" element={<CustomerTicketPortal />} />
+            <Route path="/customer/dashboard" element={<Navigate to="/portal" replace />} />
+            <Route path="/portal" element={<UserPortal />} />
           </Route>
           
           <Route path="*" element={<Navigate to="/login" replace />} />

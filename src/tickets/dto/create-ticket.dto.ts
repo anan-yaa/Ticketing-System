@@ -29,4 +29,18 @@ export class CreateTicketDto {
   @IsOptional()
   @IsString()
   customerId?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  isRecurring?: boolean;
+
+  @IsOptional()
+  @IsString()
+  cronExpression?: string;
+
+  @IsOptional()
+  executeAt?: string | Date;
 }

@@ -23,6 +23,7 @@ enum TicketStatus {
   OPEN
   IN_PROGRESS
   CLOSED
+  SCHEDULED
 }
 
 enum SubStatus {
@@ -49,19 +50,20 @@ enum UserStatus {
 }
 
 model User {
-  id           String     @id @default(uuid())
-  email        String     @unique
-  passwordHash String
-  name         String
-  systemRole   SystemRole @default(CUSTOMER) @map("role")
-  status       UserStatus @default(ACTIVE)
-  mustChangePassword Boolean @default(true)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id                 String     @id @default(uuid())
+  email              String     @unique
+  passwordHash       String
+  name               String
+  systemRole         SystemRole @default(CUSTOMER) @map("role")
+  status             UserStatus @default(ACTIVE)
+  mustChangePassword Boolean    @default(true)
+  accessTier         String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
   // Dynamic Custom Roles relation
-  roleId       String?
-  role         Role?      @relation(fields: [roleId], references: [id])
+  roleId String?
+  role   Role?   @relation(fields: [roleId], references: [id])
 
   // Relations
   tickets      Ticket[]   @relation("TicketCustomerRelation")
@@ -74,57 +76,57 @@ model User {
 }
 
 model Role {
-  id          String   @id @default(cuid())
-  name        String   @unique
+  id          String  @id @default(cuid())
+  name        String  @unique
   description String?
-  isSystem    Boolean  @default(false)
+  isSystem    Boolean @default(false)
 
   users       User[]
   permissions RolePermission[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Permission {
-  id          String   @id @default(cuid())
-  key         String   @unique
-  label       String
-  module      String
+  id     String @id @default(cuid())
+  key    String @unique
+  label  String
+  module String
 
-  roles       RolePermission[]
+  roles RolePermission[]
 }
 
 model RolePermission {
-  id            String @id @default(cuid())
+  id String @id @default(cuid())
 
-  roleId        String
-  permissionId  String
+  roleId       String
+  permissionId String
 
-  role          Role @relation(fields: [roleId], references: [id])
-  permission    Permission @relation(fields: [permissionId], references: [id])
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
 
   @@unique([roleId, permissionId])
 }
 
 model Ticket {
-  id               String         @id @default(uuid())
-  ticketSeq        Int            @unique @default(autoincrement())
-  title            String
-  description      String
-  status           TicketStatus
-  subStatus        SubStatus      @default(NONE)
-  priority         TicketPriority
-  category         String?
-  source           String         @default("PORTAL")
-  customerId       String
-  customer         User           @relation("TicketCustomerRelation", fields: [customerId], references: [id])
-  ticketOwnerId    String?
-  ticketOwner      User?          @relation("TicketOwnerRelation", fields: [ticketOwnerId], references: [id])
-  slaDeadline      DateTime
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  comments         Comment[]
+  id            String         @id @default(uuid())
+  ticketSeq     Int            @unique @default(autoincrement())
+  title         String
+  description   String
+  status        TicketStatus
+  subStatus     SubStatus      @default(NONE)
+  priority      TicketPriority
+  category      String?
+  source        String         @default("PORTAL")
+  customerId    String
+  customer      User           @relation("TicketCustomerRelation", fields: [customerId], references: [id])
+  ticketOwnerId String?
+  ticketOwner   User?          @relation("TicketOwnerRelation", fields: [ticketOwnerId], references: [id])
+  slaDeadline   DateTime
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  comments      Comment[]
 
   // Optional extended telemetry fields
   ticketType       String?
@@ -133,27 +135,41 @@ model Ticket {
   criticality      String?
   customerName     String?
   ticketSource     String?
-  timeSpentMin     Int?           @default(0)
-  isScopeInScope   Boolean?       @default(true)
+  timeSpentMin     Int?      @default(0)
+  isScopeInScope   Boolean?  @default(true)
   affectedDevice   String?
   deviceIp         String?
   queueId          String?
   slaId            String?
   respondedAt      DateTime?
   closedAt         DateTime?
-  isSlaBreached    Boolean?       @default(false)
-  ttfrDeadline         DateTime
-  resolutionDeadline   DateTime
-  firstRespondedAt     DateTime?
-  isTtfrBreached       Boolean        @default(false)
-  isResolutionBreached Boolean        @default(false)
-  scheduledAt          DateTime?
-  schedulingReason     String?
-  attachments          Attachment[]
-  
-  parentId             String?
-  parent               Ticket?        @relation("TicketToTicket", fields: [parentId], references: [id])
-  children             Ticket[]       @relation("TicketToTicket")
+  isSlaBreached    Boolean?  @default(false)
+  ttfrDeadline     DateTime
+
+  // Scheduling telemetry fields
+  isRecurring    Boolean?  @default(false)
+  executeAt      DateTime?
+  cronExpression String?
+
+  // SLA Pause tracking
+  lastPausedAt          DateTime?
+  accumulatedPausedTime Int?      @default(0)
+  resolutionDeadline    DateTime
+  firstRespondedAt      DateTime?
+  isTtfrBreached        Boolean   @default(false)
+  isResolutionBreached  Boolean   @default(false)
+
+  // Fixed instance SLA storage columns
+  responseTargetMinutes   Int @default(0) // Tracks the locked response time constraint
+  resolutionTargetMinutes Int @default(0) // Tracks the locked resolution time constraint
+
+  scheduledAt      DateTime?
+  schedulingReason String?
+  attachments      Attachment[]
+
+  parentId String?
+  parent   Ticket?  @relation("TicketToTicket", fields: [parentId], references: [id])
+  children Ticket[] @relation("TicketToTicket")
 }
 
 model Attachment {
@@ -175,15 +191,15 @@ enum CommentType {
 }
 
 model Comment {
-  id         String       @id @default(uuid())
+  id         String      @id @default(uuid())
   content    String
-  type       CommentType  @default(CLIENT_REPLY)
-  isInternal Boolean      @default(false)
+  type       CommentType @default(CLIENT_REPLY)
+  isInternal Boolean     @default(false)
   ticketId   String
-  ticket     Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket     Ticket      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   authorId   String?
-  author     User?        @relation(fields: [authorId], references: [id])
-  createdAt  DateTime     @default(now())
+  author     User?       @relation(fields: [authorId], references: [id])
+  createdAt  DateTime    @default(now())
 }
 
 model AuditLog {
@@ -230,7 +246,16 @@ model MasterAssignmentGroup {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  serviceId   String?
-  service     ServiceContract? @relation(fields: [serviceId], references: [id])
+  serviceId String?
+  service   ServiceContract? @relation(fields: [serviceId], references: [id])
 }
 
+model SlaMatrix {
+  id             String   @id @default(uuid())
+  priorityTier   String   @unique
+  responseTime   Int
+  resolutionTime Int
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

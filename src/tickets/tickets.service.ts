@@ -11,7 +11,7 @@ export class TicketsService {
   constructor(
     private prisma: PrismaService,
     private slaService: SlaService,
-  ) {}
+  ) { }
 
   private async findTicketById(idOrSeq: string) {
     const include = {
@@ -51,7 +51,7 @@ export class TicketsService {
   }
 
   async createTicket(user: any, data: CreateTicketDto) {
-    const { title, description, priority = TicketPriority.LOW, category, source = 'PORTAL', ticketSource } = data;
+    const { title, description, priority = TicketPriority.LOW, category, source = 'PORTAL', ticketSource, status, isRecurring, cronExpression, executeAt } = data;
 
     let targetCustomerId = user.userId || user.id;
     const hasAdminCreate = user.permissions && user.permissions.includes('TICKET_CREATE_AS_ADMIN');
@@ -62,32 +62,41 @@ export class TicketsService {
 
     const autoCategory = category || 'General Support';
 
-    // Calculate SLA deadline based on priority using SlaService
-    const slaDeadline = this.slaService.calculateSlaDeadline(priority);
+    // Step A & B: Query the database configuration table for the active SLA matrix settings
+    const activeConfig = await this.prisma.slaMatrix.findUnique({
+      where: { priorityTier: String(priority) }
+    });
 
-    // Dynamic SLA Deadlines calculations
-    const now = new Date();
-    let ttfrHours = 4; // default P4
-    let resolutionHours = 48; // default P4
+    // Fallback defaults if configuration is missing
+    let responseTime = 4 * 60; // default P4 (240 mins)
+    let resolutionTime = 48 * 60; // default P4 (2880 mins)
 
-    const priorityStr = String(priority);
-    if (priorityStr === 'P1' || priority === TicketPriority.URGENT) {
-      ttfrHours = 2;
-      resolutionHours = 4;
-    } else if (priorityStr === 'P2' || priority === TicketPriority.HIGH) {
-      ttfrHours = 2;
-      resolutionHours = 6;
-    } else if (priorityStr === 'P3' || priority === TicketPriority.MEDIUM) {
-      ttfrHours = 4;
-      resolutionHours = 12;
-    } else if (priorityStr === 'P4' || priority === TicketPriority.LOW) {
-      ttfrHours = 4;
-      resolutionHours = 48;
+    if (activeConfig && activeConfig.isActive) {
+      responseTime = activeConfig.responseTime;
+      resolutionTime = activeConfig.resolutionTime;
+    } else {
+      const priorityStr = String(priority);
+      if (priorityStr === 'P1' || priority === TicketPriority.URGENT) {
+        responseTime = 2 * 60;
+        resolutionTime = 4 * 60;
+      } else if (priorityStr === 'P2' || priority === TicketPriority.HIGH) {
+        responseTime = 2 * 60;
+        resolutionTime = 6 * 60;
+      } else if (priorityStr === 'P3' || priority === TicketPriority.MEDIUM) {
+        responseTime = 4 * 60;
+        resolutionTime = 12 * 60;
+      }
     }
 
-    const ttfrDeadline = new Date(now.getTime() + ttfrHours * 60 * 60 * 1000);
-    const resolutionDeadline = new Date(now.getTime() + resolutionHours * 60 * 60 * 1000);
+    // Step D: Calculate our fixed deadline timestamp based strictly on these static snapshot fields
+    const now = new Date();
+    const ttfrDeadline = new Date(now.getTime() + responseTime * 60 * 1000);
+    const resolutionDeadline = new Date(now.getTime() + resolutionTime * 60 * 1000);
 
+    // Using resolutionDeadline as the main slaDeadline for legacy fields
+    const slaDeadline = resolutionDeadline;
+
+    // Step C: Assign those extracted integers directly to our new ticket columns
     const ticket = await this.prisma.ticket.create({
       data: {
         title,
@@ -96,10 +105,15 @@ export class TicketsService {
         category: autoCategory,
         source: ticketSource || source,
         ticketSource: ticketSource || null,
-        status: TicketStatus.OPEN,
+        status: status === 'SCHEDULED' ? TicketStatus.SCHEDULED : TicketStatus.OPEN,
+        isRecurring: isRecurring || false,
+        cronExpression: cronExpression || null,
+        executeAt: executeAt ? new Date(executeAt) : null,
         slaDeadline,
         ttfrDeadline,
         resolutionDeadline,
+        responseTargetMinutes: responseTime,
+        resolutionTargetMinutes: resolutionTime,
         customerId: targetCustomerId,
       },
     });
@@ -140,7 +154,7 @@ export class TicketsService {
   async addMessage(ticketId: string, user: any, content: string, isInternal: boolean) {
     const ticket = await this.findTicketById(ticketId);
     if (!ticket) throw new NotFoundException('Ticket not found');
-    
+
     const authorId = user.userId || user.id;
     const role = user.role;
 
@@ -224,7 +238,7 @@ export class TicketsService {
   async getAllTickets() {
     const tickets = await this.prisma.ticket.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { 
+      include: {
         customer: { select: { name: true, email: true } },
         attachments: true,
         comments: {
@@ -345,7 +359,7 @@ export class TicketsService {
     if (!ticket) throw new NotFoundException('Ticket not found');
 
     const updateData: any = {};
-    
+
     // Process subStatus if provided
     if (subStatus) {
       updateData.subStatus = subStatus as SubStatus;
@@ -354,7 +368,7 @@ export class TicketsService {
         updateData.status = TicketStatus.IN_PROGRESS;
       }
     }
-    
+
     if (status) {
       updateData.status = status as TicketStatus;
       // If status is OPEN or CLOSED, clear subStatus
@@ -364,12 +378,32 @@ export class TicketsService {
     }
 
     const finalStatus = updateData.status || ticket.status;
+    const finalSubStatus = updateData.subStatus !== undefined ? updateData.subStatus : ticket.subStatus;
+    
+    const PAUSED_STATES = ['WAITING_FOR_APPROVAL', 'WAITING_FOR_VENDOR', 'WAITING_FOR_CUSTOMER', 'ON_HOLD'];
+    const isPausedNow = PAUSED_STATES.includes(finalSubStatus) && finalStatus !== 'CLOSED';
+
+    if (isPausedNow && !ticket.lastPausedAt) {
+      updateData.lastPausedAt = new Date();
+    } else if (!isPausedNow && ticket.lastPausedAt) {
+      const now = new Date();
+      const pausedSeconds = Math.floor((now.getTime() - new Date(ticket.lastPausedAt).getTime()) / 1000);
+      updateData.accumulatedPausedTime = (ticket.accumulatedPausedTime || 0) + pausedSeconds;
+      updateData.lastPausedAt = null;
+      
+      if (ticket.slaDeadline) {
+        updateData.slaDeadline = new Date(new Date(ticket.slaDeadline).getTime() + pausedSeconds * 1000);
+      }
+      if (ticket.resolutionDeadline) {
+        updateData.resolutionDeadline = new Date(new Date(ticket.resolutionDeadline).getTime() + pausedSeconds * 1000);
+      }
+    }
 
     if (finalStatus === 'IN_PROGRESS' && !ticket.firstRespondedAt) {
       const now = new Date();
       updateData.firstRespondedAt = now;
       updateData.isTtfrBreached = now > ticket.ttfrDeadline;
-      
+
       // Keep respondedAt synced for backwards compatibility
       updateData.respondedAt = now;
     }
@@ -446,36 +480,82 @@ export class TicketsService {
     const now = new Date();
     const ticketsToWake = await this.prisma.ticket.findMany({
       where: {
-        status: TicketStatus.IN_PROGRESS,
-        subStatus: SubStatus.ON_HOLD,
-        scheduledAt: {
+        status: TicketStatus.SCHEDULED,
+        executeAt: {
           lte: now,
         },
       },
     });
 
-    for (const ticket of ticketsToWake) {
-      await this.prisma.ticket.update({
-        where: { id: ticket.id },
-        data: {
-          subStatus: SubStatus.WORK_IN_PROGRESS,
-          scheduledAt: null,
-          schedulingReason: null,
-        },
-      });
+    if (ticketsToWake.length === 0) return;
 
-      await this.prisma.comment.create({
-        data: {
-          content: "[SYSTEM AUTO-WAKE] Scheduled execution window reached. Ticket restored to active workspace trail.",
-          isInternal: true,
-          type: CommentType.SYSTEM_EVENT,
-          ticketId: ticket.id,
-          // authorId is optional now, leaving it null implies a SYSTEM comment
-        },
-      });
+    const cronParser = require('cron-parser');
 
-      console.log(`[Cron] Woke up ticket ${ticket.id}`);
-    }
+    await this.prisma.$transaction(async (tx) => {
+      for (const ticket of ticketsToWake) {
+        // Step B: SLA Generation based on immutable target minutes captured at creation
+        const executeTime = new Date();
+        const ttfrDeadline = new Date(executeTime.getTime() + ticket.responseTargetMinutes * 60 * 1000);
+        const resolutionDeadline = new Date(executeTime.getTime() + ticket.resolutionTargetMinutes * 60 * 1000);
+        
+        // Use resolutionDeadline as slaDeadline
+        const slaDeadline = resolutionDeadline;
+
+        // Step A: Activate the ticket
+        await tx.ticket.update({
+          where: { id: ticket.id },
+          data: {
+            status: TicketStatus.OPEN,
+            createdAt: executeTime,
+            ttfrDeadline,
+            resolutionDeadline,
+            slaDeadline,
+            executeAt: null,
+          },
+        });
+
+        await tx.comment.create({
+          data: {
+            content: "[SYSTEM AUTO-WAKE] Scheduled execution window reached. Ticket restored to active workspace trail.",
+            isInternal: true,
+            type: CommentType.SYSTEM_EVENT,
+            ticketId: ticket.id,
+          },
+        });
+
+        console.log(`[Cron] Woke up ticket ${ticket.id}`);
+
+        // Step C: Recurrence Check
+        if (ticket.isRecurring && ticket.cronExpression) {
+          try {
+            const interval = cronParser.parseExpression(ticket.cronExpression);
+            const nextExecuteAt = interval.next().toDate();
+
+            await tx.ticket.create({
+              data: {
+                title: ticket.title,
+                description: ticket.description,
+                priority: ticket.priority,
+                category: ticket.category,
+                source: ticket.source,
+                customerId: ticket.customerId,
+                ticketOwnerId: ticket.ticketOwnerId,
+                status: TicketStatus.SCHEDULED,
+                executeAt: nextExecuteAt,
+                isRecurring: true,
+                cronExpression: ticket.cronExpression,
+                ttfrDeadline: nextExecuteAt, // placeholder
+                resolutionDeadline: nextExecuteAt, // placeholder
+                slaDeadline: nextExecuteAt, // placeholder
+              }
+            });
+            console.log(`[Cron] Cloned recurring ticket ${ticket.id} for ${nextExecuteAt}`);
+          } catch (err) {
+            console.error(`[Cron] Invalid cron expression for ticket ${ticket.id}:`, err);
+          }
+        }
+      }
+    });
   }
 
   async mergeTickets(childId: string, parentId: string) {
@@ -516,7 +596,7 @@ export class TicketsService {
       // Step C: Audit Log in Primary Ticket
       await tx.comment.create({
         data: {
-          content: `🛡️ System: Consolidated history, logs, and attachments from merged duplicate ticket T${childTicket.ticketSeq}.`,
+          content: `System Consolidated history, logs, and attachments from merged duplicate ticket T${childTicket.ticketSeq}.`,
           isInternal: true,
           type: CommentType.SYSTEM_EVENT,
           ticketId: parentTicket.id,

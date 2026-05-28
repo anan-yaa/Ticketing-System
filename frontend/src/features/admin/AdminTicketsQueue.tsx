@@ -4,46 +4,30 @@ import { fetchAllTicketsAdmin, createTicketAdmin, updateTicketCoreData, Ticket }
 import { fetchUsers } from '../../api/users';
 import { PermissionGate } from '../../components/PermissionGate';
 import api from '../../api/axios';
+import { useAuth } from '../../context/AuthContext';
 import { SlaHealthTelemetry } from '../../components/SlaHealthTelemetry';
 import { ScheduleTicketModal } from './ScheduleTicketModal';
 import { MergeTicketsModal } from './MergeTicketsModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-const SERVICE_GROUPS_CONFIG = [
-  {
-    service: 'RIMS',
-    description: 'Remote Infrastructure Management Services',
-    queues: [
-      { name: 'RIMS - Information', label: 'Information' },
-      { name: 'RIMS - Offboarding', label: 'Offboarding' },
-      { name: 'RIMS - Proactive', label: 'Proactive' }
-    ]
-  },
-  {
-    service: 'MSS',
-    description: 'Managed Security Services',
-    queues: [
-      { name: 'MSS - SIEM Alerts', label: 'SIEM Alerts' },
-      { name: 'MSS - Incident Response', label: 'Incident Response' },
-      { name: 'MSS - Vulnerability Management', label: 'Vulnerability Management' }
-    ]
-  },
-
-  {
-    service: 'WPE',
-    description: 'Workplace Endpoints',
-    queues: [
-      { name: 'WPE - Device Enrollment', label: 'Device Enrollment' },
-      { name: 'WPE - Quarantine Investigation', label: 'Quarantine Investigation' },
-      { name: 'WPE - Software Distribution', label: 'Software Distribution' }
-    ]
-  }
+const TICKET_TYPES = [
+  "Incident",
+  "Service Request",
+  "Proactive Notification",
+  "Report",
+  "Information",
+  "Notification - Domain/Renewal Updates",
+  "Junk - Advertisements",
+  "Maintenance"
 ];
+
+const MASTER_GROUPS = ['RIMS', 'MSS', 'WPE', 'MAINTENANCE'];
 
 export const AdminTicketsQueue: React.FC = () => {
   const queryClient = useQueryClient();
-  const [workspace, setWorkspace] = useState<'openQueue' | 'inProgress' | 'closedArchive'>('openQueue');
+  const { user } = useAuth();
+  const [workspace, setWorkspace] = useState<'openQueue' | 'myQueue' | 'closedArchive'>('openQueue');
   const [selectedGroupFilter, setSelectedGroupFilter] = useState('ALL');
   const [isExpanded, setIsExpanded] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -154,6 +138,12 @@ export const AdminTicketsQueue: React.FC = () => {
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
 
+  // Scheduling State
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduleFrequency, setScheduleFrequency] = useState('Run Once');
+  const [executeAt, setExecuteAt] = useState('');
+  const [cronExpression, setCronExpression] = useState('');
+
   // Core Data Form State
   const [coreType, setCoreType] = useState('');
   const [coreQueueId, setCoreQueueId] = useState('');
@@ -209,25 +199,14 @@ export const AdminTicketsQueue: React.FC = () => {
   });
 
   // Fetch Master Data Types
-  const { data: masterTypes = [] } = useQuery<any[]>({
-    queryKey: ['master-types'],
-    queryFn: async () => {
-      const res = await api.get('/master-config/types?activeOnly=true');
-      return res.data;
-    },
-    enabled: isCoreDataModalOpen,
-  });
-
-  // Fetch Master Data Queues
-  const { data: masterQueues = [] } = useQuery<any[]>({
-    queryKey: ['master-queues'],
-    queryFn: async () => {
-      const res = await api.get('/master-config/queues?activeOnly=true');
-      return res.data;
-    },
-    enabled: isCoreDataModalOpen,
-  });
-
+  // const { data: masterTypes = [] } = useQuery<any[]>({
+  //   queryKey: ['master-types'],
+  //   queryFn: async () => {
+  //     const res = await api.get('/master-config/types?activeOnly=true');
+  //     return res.data;
+  //   },
+  //   enabled: isCoreDataModalOpen,
+  // });
   // Fetch Master Data Services
   const { data: masterServices = [] } = useQuery<any[]>({
     queryKey: ['master-services'],
@@ -238,11 +217,6 @@ export const AdminTicketsQueue: React.FC = () => {
     enabled: isCoreDataModalOpen,
   });
 
-  // Filter Master Queues dynamically by selected Service Contract name or id
-  const filteredQueues = masterQueues.filter((q: any) => {
-    if (!coreServiceContract) return false;
-    return q.service?.id === coreServiceContract || q.service?.name === coreServiceContract;
-  });
 
   // Show Toast Helper
   const showToast = (message: string, type: 'success' | 'error') => {
@@ -274,7 +248,7 @@ export const AdminTicketsQueue: React.FC = () => {
     mutationFn: ({ id, payload }: { id: string; payload: any }) => updateTicketCoreData(id, payload),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
-      showToast('CORE TELEMETRY ENRICHED SUCCESSFULLY', 'success');
+      showToast('CORE DATA ADDED', 'success');
       setIsCoreDataModalOpen(false);
 
       // Update local selected ticket details
@@ -314,6 +288,12 @@ export const AdminTicketsQueue: React.FC = () => {
       category,
       source,
       customerId: targetCustomerId,
+      ...(isScheduled && {
+        status: 'SCHEDULED',
+        executeAt,
+        isRecurring: scheduleFrequency === 'Recurring Maintenance Routine',
+        cronExpression: scheduleFrequency === 'Recurring Maintenance Routine' ? cronExpression : undefined,
+      }),
     });
   };
 
@@ -363,19 +343,23 @@ export const AdminTicketsQueue: React.FC = () => {
   // Filter tickets dynamically by routing group (Rule B)
   const groupFilteredTickets = tickets.filter((t) => {
     if (selectedGroupFilter !== 'ALL') {
+      if (selectedGroupFilter.includes('::')) {
+        const [svc, type] = selectedGroupFilter.split('::');
+        return t.serviceContract === svc && t.ticketType === type;
+      }
       return t.queueId === selectedGroupFilter;
     }
     return true;
   });
 
-  // Filter tickets for "Open Queue" (status is exactly OPEN)
+  // Filter tickets for "Open Queue" (all active tickets: status !== 'CLOSED')
   const openQueueTickets = groupFilteredTickets.filter(
-    (t) => t.status === 'OPEN'
+    (t) => t.status !== 'CLOSED'
   );
 
-  // Filter tickets for "In Progress" (status is exactly IN_PROGRESS)
-  const inProgressTickets = groupFilteredTickets.filter(
-    (t) => t.status === 'IN_PROGRESS'
+  // Filter tickets for "My Queue" (assigned to current user and not closed)
+  const myQueueTickets = groupFilteredTickets.filter(
+    (t) => user?.systemRole === 'SUPER_ADMIN' ? false : ((t.ticketOwnerId === user?.id || (t as any).assignedToId === user?.id) && t.status !== 'CLOSED')
   );
 
   // Filter tickets for "Closed Archive" (status is exactly CLOSED)
@@ -385,7 +369,7 @@ export const AdminTicketsQueue: React.FC = () => {
 
   const displayedTickets =
     workspace === 'openQueue' ? openQueueTickets :
-      workspace === 'inProgress' ? inProgressTickets :
+      workspace === 'myQueue' ? myQueueTickets :
         workspace === 'closedArchive' ? closedArchiveTickets : [];
 
   const priorityColor = (p: string) => {
@@ -440,33 +424,7 @@ export const AdminTicketsQueue: React.FC = () => {
       {/* Workspace Split-Tab Selection & Actions */}
       <div className="flex justify-between items-center border-b border-white/5 pb-4">
         <div className="flex gap-4">
-          <button
-            onClick={() => setWorkspace('openQueue')}
-            className={`px-5 py-2.5 font-mono text-xs uppercase tracking-widest transition-all rounded-xl border ${workspace === 'openQueue'
-              ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
-              : 'border-transparent text-slate-400 hover:bg-white/5 hover:text-slate-200'
-              }`}
-          >
-            [ Open Queue ({openQueueTickets.length}) ]
-          </button>
-          <button
-            onClick={() => setWorkspace('inProgress')}
-            className={`px-5 py-2.5 font-mono text-xs uppercase tracking-widest transition-all rounded-xl border ${workspace === 'inProgress'
-              ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
-              : 'border-transparent text-slate-400 hover:bg-white/5 hover:text-slate-200'
-              }`}
-          >
-            [ In Progress ({inProgressTickets.length}) ]
-          </button>
-          <button
-            onClick={() => setWorkspace('closedArchive')}
-            className={`px-5 py-2.5 font-mono text-xs uppercase tracking-widest transition-all rounded-xl border ${workspace === 'closedArchive'
-              ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
-              : 'border-transparent text-slate-400 hover:bg-white/5 hover:text-slate-200'
-              }`}
-          >
-            [ Closed Archive ({closedArchiveTickets.length}) ]
-          </button>
+          {/* Horizontal pills have been migrated to the left vertical sidebar */}
         </div>
 
         <PermissionGate allowedPermissions={['TICKET_CREATE_AS_ADMIN']}>
@@ -482,89 +440,110 @@ export const AdminTicketsQueue: React.FC = () => {
       {/* Workspace Flex Split */}
       <div className="flex flex-col md:flex-row gap-6 w-full items-start flex-1 overflow-hidden mt-6">
         {/* LEFT SERVICE-QUEUE FILTER RAIL */}
-        <div className="w-full md:w-64 shrink-0 bg-slate-950/80 border border-white/10 rounded-2xl p-4 shadow-[0_4px_30px_rgba(0,0,0,0.5)] backdrop-blur-md space-y-6 max-h-[80vh] overflow-y-auto">
+        <div className="theme-card-panel w-full md:w-64 shrink-0 p-4 space-y-6 max-h-[80vh] overflow-y-auto">
+          {/* POSITION 1: MY QUEUE */}
           <div>
             <button
               onClick={() => {
-                setIsExpanded(!isExpanded);
+                setWorkspace('myQueue');
                 setSelectedGroupFilter('ALL');
               }}
-              className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-mono transition-all duration-200 uppercase flex items-center justify-between border ${selectedGroupFilter === 'ALL'
+              className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-mono transition-all duration-200 uppercase flex items-center justify-between border ${workspace === 'myQueue'
                 ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30 shadow-[0_0_15px_rgba(34,211,238,0.15)] font-bold'
                 : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
             >
-              <span className="flex items-center gap-2">🌐 All Service Groups</span>
-              <span className={`transform transition-transform duration-200 text-[10px] ${isExpanded ? 'rotate-90' : 'rotate-0'}`}>
-                ▶
+              <span className="flex items-center gap-2">📁 My Queue</span>
+              <span className="font-bold text-slate-300">
+                ({myQueueTickets.length})
               </span>
             </button>
           </div>
 
-          {isExpanded && (
-            <>
-              {SERVICE_GROUPS_CONFIG.map((group) => {
-                return (
-                  <div key={group.service} className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                    <h4 className="text-[9px] font-mono text-slate-500 uppercase tracking-widest font-semibold px-2">
-                      ── {group.service} QUEUES ──
-                    </h4>
-                    <div className="space-y-1">
-                      {group.queues.map((q) => {
-                        const displayName = `• ${q.label}`;
-                        const isActive = selectedGroupFilter === q.name;
-                        return (
-                          <button
-                            key={q.name}
-                            onClick={() => setSelectedGroupFilter(q.name)}
-                            className={`w-full text-left px-4 py-2 rounded-xl text-xs font-mono transition-all duration-200 uppercase border ${isActive
-                              ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/25 shadow-[0_0_15px_rgba(6,182,212,0.15)] font-bold'
-                              : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                              }`}
-                          >
-                            {displayName}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+          {/* POSITION 2: OPEN QUEUE ACCORDION */}
+          <div className="space-y-2">
+            <button
+              onClick={() => {
+                setWorkspace('openQueue');
+                setIsExpanded(!isExpanded);
+                if (workspace !== 'openQueue') setSelectedGroupFilter('ALL');
+              }}
+              className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-mono transition-all duration-200 uppercase flex items-center justify-between border ${workspace === 'openQueue'
+                ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30 shadow-[0_0_15px_rgba(34,211,238,0.15)] font-bold'
+                : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+            >
+              <span className="flex items-center gap-2">🌐 Open Queue</span>
+              <span className={`transform transition-transform duration-200 text-[10px] ${isExpanded ? 'rotate-90' : 'rotate-0'}`}>
+                ▶
+              </span>
+            </button>
 
-              {/* System/Global Fallback */}
-              {(() => {
-                const systemQueues = masterQueues.filter(
-                  (q) => !q.service && !['RIMS', 'MSS', 'IAM', 'WPE'].some(s => q.name.startsWith(`${s} - `))
-                );
-                if (systemQueues.length === 0) return null;
-                return (
-                  <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                    <h4 className="text-[9px] font-mono text-slate-500 uppercase tracking-widest font-semibold px-2">
-                      ── SYSTEM QUEUES ──
-                    </h4>
-                    <div className="space-y-1">
-                      {systemQueues.map((q) => {
-                        const displayName = `• ${q.name}`;
-                        const isActive = selectedGroupFilter === q.name;
-                        return (
-                          <button
-                            key={q.id}
-                            onClick={() => setSelectedGroupFilter(q.name)}
-                            className={`w-full text-left px-4 py-2 rounded-xl text-xs font-mono transition-all duration-200 uppercase border ${isActive
-                              ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/25 shadow-[0_0_15px_rgba(6,182,212,0.15)] font-bold'
-                              : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                              }`}
-                          >
-                            {displayName}
-                          </button>
-                        );
-                      })}
+            {isExpanded && workspace === 'openQueue' && (
+              <div className="pl-2 space-y-4 pt-2">
+                {MASTER_GROUPS.map((serviceGroup) => {
+                  const subQueues = TICKET_TYPES.map((type, index) => {
+                    const count = tickets.filter(
+                      (t) => t.serviceContract === serviceGroup && t.ticketType === type && t.status !== 'CLOSED'
+                    ).length;
+                    const code = `${serviceGroup}-${String(index + 1).padStart(3, '0')}`;
+                    const filterName = `${serviceGroup}::${type}`;
+                    return { label: type, code, filterName, count };
+                  }).filter((sq) => sq.count >= 1);
+
+                  if (subQueues.length === 0) return null;
+
+                  return (
+                    <div key={serviceGroup} className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <h4 className="text-[9px] font-mono text-slate-500 uppercase tracking-widest font-semibold px-2">
+                        ── {serviceGroup} QUEUES ──
+                      </h4>
+                      <div className="space-y-1">
+                        {subQueues.map((q) => {
+                          const isActive = selectedGroupFilter === q.filterName;
+                          return (
+                            <button
+                              key={q.code}
+                              onClick={() => setSelectedGroupFilter(q.filterName)}
+                              className={`w-full text-left px-4 py-2 rounded-xl text-xs font-mono transition-all duration-200 uppercase border flex items-center justify-between ${isActive
+                                ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/25 shadow-[0_0_15px_rgba(6,182,212,0.15)] font-bold'
+                                : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                                }`}
+                            >
+                              <div className="flex items-center">
+                                <span className="inline-block text-cyan-600/70 font-mono text-[10px] mr-2 tracking-wider">
+                                  [{q.code}]
+                                </span>
+                                <span className="truncate max-w-[120px]" title={q.label}>{q.label}</span>
+                              </div>
+                              <span className="font-bold text-slate-300">({q.count})</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                );
-              })()}
-            </>
-          )}
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* POSITION 3: CLOSED ARCHIVE */}
+          <div className="pt-4 border-t border-white/5">
+            <button
+              onClick={() => {
+                setWorkspace('closedArchive');
+                setSelectedGroupFilter('ALL');
+              }}
+              className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-mono transition-all duration-200 uppercase flex items-center justify-between border ${workspace === 'closedArchive'
+                ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30 shadow-[0_0_15px_rgba(34,211,238,0.15)] font-bold'
+                : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+            >
+              <span className="flex items-center gap-2">🗄️ Closed Archive</span>
+              <span className="font-bold text-slate-300">({closedArchiveTickets.length})</span>
+            </button>
+          </div>
         </div>
 
         {/* RIGHT CONTENT WORKSPACE */}
@@ -579,8 +558,8 @@ export const AdminTicketsQueue: React.FC = () => {
             <div className="h-full flex items-center justify-center text-rose-400 font-mono tracking-widest text-center py-12">
               ERROR FETCHING QUEUE CHANNELS
             </div>
-          ) : workspace === 'inProgress' ? (
-            <div className="bg-black/30 border border-white/5 rounded-2xl overflow-hidden shadow-[0_4px_30px_rgba(0,0,0,0.3)] backdrop-blur-md">
+          ) : workspace === 'myQueue' ? (
+            <div className="theme-card-panel overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-slate-300 font-mono text-xs">
                   <thead>
@@ -595,14 +574,14 @@ export const AdminTicketsQueue: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {inProgressTickets.length === 0 ? (
+                    {myQueueTickets.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="p-8 text-center text-slate-500 uppercase font-mono">
                           No active tickets inside this channel
                         </td>
                       </tr>
                     ) : (
-                      inProgressTickets.map((t) => {
+                      myQueueTickets.map((t) => {
                         return (
                           <tr
                             key={t.id}
@@ -674,7 +653,7 @@ export const AdminTicketsQueue: React.FC = () => {
               </div>
             </div>
           ) : workspace === 'closedArchive' ? (
-            <div className="bg-black/30 border border-white/5 rounded-2xl overflow-hidden shadow-[0_4px_30px_rgba(0,0,0,0.3)] backdrop-blur-md">
+            <div className="theme-card-panel overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-slate-300 font-mono text-xs">
                   <thead>
@@ -741,7 +720,7 @@ export const AdminTicketsQueue: React.FC = () => {
                 <div
                   key={t.id}
                   onClick={() => setSelectedTicket(t)}
-                  className="bg-black/30 border border-white/5 hover:border-cyan-500/20 rounded-2xl p-6 transition-all hover:bg-black/40 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 cursor-pointer group"
+                  className="theme-card-panel hover:border-cyan-500/20 p-6 transition-all hover:bg-black/40 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 cursor-pointer group"
                 >
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
@@ -797,19 +776,65 @@ export const AdminTicketsQueue: React.FC = () => {
             <div className="w-full md:w-[70%] md:max-w-[70%] md:shrink-0 bg-black/40 border-r border-white/5 p-8 flex flex-col overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1 text-[10px] font-black tracking-widest uppercase rounded-lg border ${statusColor(selectedTicket.status)}`}>
-                    {selectedTicket.status}
-                  </span>
+                  <select
+                    value={selectedTicket.subStatus || 'NONE'}
+                    onChange={async (e) => {
+                      const selectedVal = e.target.value;
+                      if (selectedVal === 'NONE') return;
+                      try {
+                        let payload: any = {
+                          status: 'IN_PROGRESS',
+                          subStatus: selectedVal,
+                          assignedToId: user?.id,
+                          ticketOwnerId: user?.id
+                        };
+                        
+                        if (selectedVal === 'RESOLVED') {
+                           payload = {
+                             status: 'CLOSED',
+                             subStatus: 'NONE', // RESOLVED is not a valid Prisma SubStatus enum
+                             assignedToId: user?.id,
+                             ticketOwnerId: user?.id,
+                             closedAt: new Date().toISOString()
+                           };
+                        }
 
-                  {selectedTicket.status === 'IN_PROGRESS' && (
-                    <button
-                      onClick={() => setIsScheduleModalOpen(true)}
-                      className="px-3 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-400 text-indigo-300 font-mono text-[10px] font-bold uppercase rounded-lg transition-all shadow-[0_0_10px_rgba(99,102,241,0.1)] hover:shadow-[0_0_15px_rgba(99,102,241,0.3)] tracking-wider flex items-center gap-1.5"
-                      title="Schedule Ticket"
-                    >
-                      <span>⏱</span> Schedule
-                    </button>
-                  )}
+                        const res = await api.patch(`/tickets/${selectedTicket.id}/status`, payload);
+                        
+                        if (selectedVal === 'RESOLVED') {
+                          setSelectedTicket(null);
+                        } else {
+                          setSelectedTicket(res.data);
+                        }
+                        
+                        queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
+                        setToast({ message: selectedVal === 'RESOLVED' ? 'Ticket successfully resolved and archived' : `Status updated to ${selectedVal.replace(/_/g, ' ')}`, type: 'success' });
+                      } catch (err) {
+                        setToast({ message: 'Failed to update Status', type: 'error' });
+                      }
+                    }}
+                    className="bg-slate-900/80 border border-white/10 text-xs font-mono uppercase rounded-lg px-3 py-1 outline-none transition-all focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 cursor-pointer text-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.1)]"
+                  >
+                    <option value="NONE" disabled>
+                      {(!selectedTicket.ticketOwnerId && !(selectedTicket as any).assignedToId) ? 'ASSIGN STATE' : 'ASSIGN STATE'}
+                    </option>
+                    <option value="WORK_IN_PROGRESS">WORK IN PROGRESS</option>
+                    <option value="WAITING_FOR_APPROVAL">WAITING FOR APPROVAL</option>
+                    <option value="WAITING_FOR_AGENT">WAITING FOR AGENT</option>
+                    <option value="WAITING_FOR_VENDOR">WAITING FOR VENDOR</option>
+                    <option value="WAITING_FOR_CUSTOMER">WAITING FOR CUSTOMER</option>
+                    <option value="ON_HOLD">ON HOLD</option>
+                    <option value="UNDER_OBSERVATION">UNDER OBSERVATION</option>
+                    <option value="RESOLVED">RESOLVED</option>
+                  </select>
+
+                  <button
+                    onClick={() => setIsScheduleModalOpen(true)}
+                    className="px-3 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-400 text-indigo-300 font-mono text-[10px] font-bold uppercase rounded-lg transition-all shadow-[0_0_10px_rgba(99,102,241,0.1)] hover:shadow-[0_0_15px_rgba(99,102,241,0.3)] tracking-wider flex items-center gap-1.5"
+                    title="Schedule Ticket"
+                  >
+                    <span>⏱</span> Schedule
+                  </button>
 
                   <button
                     onClick={() => setIsMergeModalOpen(true)}
@@ -818,68 +843,6 @@ export const AdminTicketsQueue: React.FC = () => {
                   >
                     <span>🔗</span> Merge
                   </button>
-
-                  {selectedTicket.status === 'OPEN' && (
-                    <button
-                      onClick={async () => {
-                        try {
-                          const res = await api.patch(`/tickets/${selectedTicket.id}/status`, { status: 'IN_PROGRESS' });
-                          setSelectedTicket(res.data);
-                          queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
-                          setToast({ message: 'Ticket status moved to In Progress', type: 'success' });
-                        } catch (err) {
-                          setToast({ message: 'Failed to update ticket status', type: 'error' });
-                        }
-                      }}
-                      className="px-3 py-1 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 text-white font-mono text-[10px] font-bold uppercase rounded-lg transition-all shadow-[0_0_10px_rgba(255,255,255,0.05)] hover:shadow-[0_0_15px_rgba(255,255,255,0.15)] tracking-wider"
-                    >
-                      start progress
-                    </button>
-                  )}
-                  {selectedTicket.status === 'IN_PROGRESS' && (
-                    <>
-                      <select
-                        value={selectedTicket.subStatus || 'NONE'}
-                        onChange={async (e) => {
-                          const newSubStatus = e.target.value;
-                          try {
-                            const res = await api.patch(`/tickets/${selectedTicket.id}/status`, { subStatus: newSubStatus });
-                            setSelectedTicket(res.data);
-                            queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
-                            setToast({ message: `Status updated to ${newSubStatus.replace(/_/g, ' ')}`, type: 'success' });
-                          } catch (err) {
-                            setToast({ message: 'Failed to update Status', type: 'error' });
-                          }
-                        }}
-                        className="bg-slate-900/80 border border-white/10 text-xs font-mono uppercase rounded-lg px-3 py-1 outline-none transition-all focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 cursor-pointer text-slate-300"
-                      >
-                        <option value="NONE">ASSIGN STATE</option>
-                        <option value="WORK_IN_PROGRESS">WORK IN PROGRESS</option>
-                        <option value="WAITING_FOR_APPROVAL">WAITING FOR APPROVAL</option>
-                        <option value="WAITING_FOR_AGENT">WAITING FOR AGENT</option>
-                        <option value="WAITING_FOR_VENDOR">WAITING FOR VENDOR</option>
-                        <option value="WAITING_FOR_CUSTOMER">WAITING FOR CUSTOMER</option>
-                        <option value="ON_HOLD">ON HOLD</option>
-                        <option value="UNDER_OBSERVATION">UNDER OBSERVATION</option>
-                      </select>
-
-                      <button
-                        onClick={async () => {
-                          try {
-                            const res = await api.patch(`/tickets/${selectedTicket.id}/status`, { status: 'CLOSED' });
-                            setSelectedTicket(res.data);
-                            queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
-                            setToast({ message: 'Ticket successfully resolved and archived', type: 'success' });
-                          } catch (err) {
-                            setToast({ message: 'Failed to update ticket status', type: 'error' });
-                          }
-                        }}
-                        className="px-3 py-1 bg-emerald-500/20 hover:bg-emerald-500 border border-emerald-500/50 hover:border-emerald-400 text-emerald-300 hover:text-white font-mono text-[10px] font-bold uppercase rounded-lg transition-all shadow-[0_0_10px_rgba(52,211,153,0.2)] hover:shadow-[0_0_20px_rgba(52,211,153,0.5)] tracking-wider animate-pulse"
-                      >
-                        Close Ticket
-                      </button>
-                    </>
-                  )}
                 </div>
               </div>
 
@@ -1192,14 +1155,14 @@ export const AdminTicketsQueue: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Search Customer ID, Name, or Email...</label>
+                <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Search User ID, Name, or Email...</label>
 
                 <div className="space-y-2">
                   <input
                     type="text"
                     value={customerSearch}
                     onChange={(e) => setCustomerSearch(e.target.value)}
-                    placeholder="Search Customer ID, Name, or Email..."
+                    placeholder="Search User ID, Name, or Email..."
                     className="w-full px-4 py-2 bg-black/20 border border-white/5 rounded-lg text-white font-mono text-xs uppercase tracking-wider outline-none focus:ring-1 focus:ring-cyan-500/30"
                   />
 
@@ -1210,7 +1173,7 @@ export const AdminTicketsQueue: React.FC = () => {
                     className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all text-sm font-mono"
                   >
                     <option value="" disabled className="bg-slate-900 text-slate-500">
-                      {isLoadingCustomers ? 'Loading matching accounts...' : 'Choose a customer account'}
+                      {isLoadingCustomers ? 'Loading matching accounts...' : 'Choose an user account'}
                     </option>
                     {customers.map((c: any) => {
                       const custId = c.customerId || c.id.substring(0, 8).toUpperCase();
@@ -1227,6 +1190,69 @@ export const AdminTicketsQueue: React.FC = () => {
                     )}
                   </select>
                 </div>
+              </div>
+
+              {/* Automation Parameters */}
+              <div className="pt-4 border-t border-white/5 mt-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-white tracking-widest uppercase flex items-center gap-2">
+                    <span className="text-cyan-400">⚙️</span> Schedule Ticket
+                  </h3>
+                  <label className="flex items-center cursor-pointer">
+                    <div className="relative">
+                      <input type="checkbox" className="sr-only" checked={isScheduled} onChange={(e) => setIsScheduled(e.target.checked)} />
+                      <div className={`block w-10 h-6 rounded-full transition-colors ${isScheduled ? 'bg-cyan-500' : 'bg-slate-700'}`}></div>
+                      <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${isScheduled ? 'transform translate-x-4' : ''}`}></div>
+                    </div>
+                    <span className="ml-3 text-[10px] font-mono text-slate-400 uppercase tracking-widest">
+                      Schedule this ticket?
+                    </span>
+                  </label>
+                </div>
+
+                {isScheduled && (
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in slide-in-from-top-2 duration-300">
+                    <div className="flex gap-4">
+                      <div className="flex-1">
+                        <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Frequency</label>
+                        <select
+                          value={scheduleFrequency}
+                          onChange={(e) => setScheduleFrequency(e.target.value)}
+                          className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all text-sm font-mono"
+                        >
+                          <option value="Run Once" className="bg-slate-900">Run Once</option>
+                          <option value="Recurring Maintenance Routine" className="bg-slate-900">Recurring Maintenance Routine</option>
+                        </select>
+                      </div>
+
+                      <div className="flex-1">
+                        <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Target Execution Window</label>
+                        <input
+                          type="datetime-local"
+                          required={isScheduled}
+                          value={executeAt}
+                          onChange={(e) => setExecuteAt(e.target.value)}
+                          className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all text-sm font-mono [color-scheme:dark]"
+                        />
+                      </div>
+                    </div>
+
+                    {scheduleFrequency === 'Recurring Maintenance Routine' && (
+                      <div>
+                        <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Cron Pattern Interval</label>
+                        <input
+                          type="text"
+                          required={scheduleFrequency === 'Recurring Maintenance Routine'}
+                          value={cronExpression}
+                          onChange={(e) => setCronExpression(e.target.value)}
+                          placeholder="0 6 * * 1"
+                          className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all text-sm font-mono"
+                        />
+                        <p className="text-[10px] text-slate-500 mt-1 font-mono uppercase">e.g., '0 6 * * 1' for weekly</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 flex gap-4 mt-8">
@@ -1288,31 +1314,17 @@ export const AdminTicketsQueue: React.FC = () => {
                       className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 text-white outline-none text-xs font-mono uppercase"
                     >
                       <option value="" className="bg-slate-900">Select Type</option>
-                      {masterTypes.map((t) => (
-                        <option key={t.id} value={t.name} className="bg-slate-900">
-                          {t.name}
-                        </option>
-                      ))}
+                      <option value="Incident" className="bg-slate-900">Incident</option>
+                      <option value="Service Request" className="bg-slate-900">Service Request</option>
+                      <option value="Proactive Notification" className="bg-slate-900">Proactive Notification</option>
+                      <option value="Report" className="bg-slate-900">Report</option>
+                      <option value="Information" className="bg-slate-900">Information</option>
+                      <option value="Notification - Domain/Renewal Updates" className="bg-slate-900">Notification - Domain/Renewal Updates</option>
+                      <option value="Junk - Advertisements" className="bg-slate-900">Junk - Advertisements</option>
+                      <option value="Maintenance" className="bg-slate-900">Maintenance</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-2 uppercase tracking-widest">Queue ID</label>
-                    <select
-                      value={coreQueueId}
-                      onChange={(e) => setCoreQueueId(e.target.value)}
-                      disabled={!coreServiceContract}
-                      className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 text-white outline-none text-xs font-mono uppercase disabled:opacity-45 disabled:cursor-not-allowed"
-                    >
-                      <option value="" className="bg-slate-900">
-                        {!coreServiceContract ? 'Select Service Contract First' : 'Select Queue'}
-                      </option>
-                      {filteredQueues.map((q) => (
-                        <option key={q.id} value={q.name} className="bg-slate-900">
-                          {q.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+
                   <div>
                     <label className="block text-[10px] font-mono text-slate-400 mb-2 uppercase tracking-widest">Status</label>
                     <select
@@ -1371,7 +1383,7 @@ export const AdminTicketsQueue: React.FC = () => {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                   <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-2 uppercase tracking-widest">Customer Name</label>
+                    <label className="block text-[10px] font-mono text-slate-400 mb-2 uppercase tracking-widest">User Name</label>
                     <input
                       type="text"
                       value={coreCustomerName}

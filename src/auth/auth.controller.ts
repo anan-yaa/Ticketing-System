@@ -41,6 +41,30 @@ export class AuthController {
         mustChangePassword: false,
       },
     });
-    return { success: true, user };
+
+    const customerUser = await prisma.user.upsert({
+      where: { email: 'user1@example.com' },
+      update: {
+        passwordHash: await bcrypt.hash('Password123', 10),
+        status: 'ACTIVE',
+      },
+      create: {
+        email: 'user1@example.com',
+        passwordHash: await bcrypt.hash('Password123', 10),
+        name: 'User One',
+        systemRole: 'CUSTOMER',
+        status: 'ACTIVE',
+        mustChangePassword: false,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Testing credentials for admin and customer accounts cleanly synchronized',
+      accounts: {
+        admin: user.email,
+        customer: customerUser.email
+      }
+    };
   }
 }

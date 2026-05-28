@@ -8,6 +8,7 @@ type User = {
   permissions: string[];
   email: string;
   name: string;
+  accessTier?: string;
 };
 
 interface AuthContextType {
@@ -45,6 +46,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = (newToken: string, newUser: User) => {
     localStorage.setItem('jwt_token', newToken);
+    
+    try {
+      const payloadBase64 = newToken.split('.')[1];
+      const decodedJson = atob(payloadBase64);
+      const decoded = JSON.parse(decodedJson);
+      if (decoded.accessTier) {
+        newUser.accessTier = decoded.accessTier;
+      }
+    } catch (e) {
+      console.error('Failed to decode token payload', e);
+    }
+
     localStorage.setItem('user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);

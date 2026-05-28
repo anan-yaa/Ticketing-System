@@ -1,13 +1,37 @@
 import { useState, useEffect } from 'react';
 
-export function useCountDown(deadline: string | Date | null | undefined, createdAt?: string | Date | null) {
+export function useCountDown(
+  deadline: string | Date | null | undefined, 
+  createdAt?: string | Date | null,
+  status?: string,
+  subStatus?: string
+) {
   const [timeString, setTimeString] = useState<string>('00:00:00');
   const [percentRemaining, setPercentRemaining] = useState<number>(100);
+  const [colorClass, setColorClass] = useState<string>('text-cyan-400');
 
   useEffect(() => {
+    const COMPLETED_STATES = ['UNDER_OBSERVATION', 'CLOSED'];
+    const PAUSED_STATES = ['WAITING_FOR_APPROVAL', 'WAITING_FOR_VENDOR', 'WAITING_FOR_CUSTOMER', 'ON_HOLD'];
+    
+    // Evaluate combined state
+    const activeState = COMPLETED_STATES.includes(subStatus || '') || COMPLETED_STATES.includes(status || '')
+      ? 'COMPLETED'
+      : PAUSED_STATES.includes(subStatus || '')
+      ? 'PAUSED'
+      : 'RUNNING';
+
+    if (activeState === 'COMPLETED') {
+      setTimeString('✓ SLA MET');
+      setPercentRemaining(100);
+      setColorClass('text-emerald-500');
+      return;
+    }
+
     if (!deadline) {
       setTimeString('N/A');
       setPercentRemaining(100);
+      setColorClass('text-slate-500');
       return;
     }
 
@@ -22,6 +46,7 @@ export function useCountDown(deadline: string | Date | null | undefined, created
       if (diff <= 0) {
         setTimeString('BREACHED');
         setPercentRemaining(0);
+        setColorClass('text-rose-500');
         return;
       }
 
@@ -34,6 +59,7 @@ export function useCountDown(deadline: string | Date | null | undefined, created
       const sStr = String(seconds).padStart(2, '0');
 
       setTimeString(`${hStr}:${mStr}:${sStr}`);
+      setColorClass(activeState === 'PAUSED' ? 'text-amber-500' : 'text-cyan-400');
 
       if (totalDuration > 0) {
         const pct = Math.max(0, Math.min(100, (diff / totalDuration) * 100));
@@ -44,10 +70,15 @@ export function useCountDown(deadline: string | Date | null | undefined, created
     };
 
     updateTimer();
+
+    if (activeState === 'PAUSED') {
+      // Clear interval by not starting one, timer is frozen.
+      return;
+    }
+
     const interval = setInterval(updateTimer, 1000);
-
     return () => clearInterval(interval);
-  }, [deadline, createdAt]);
+  }, [deadline, createdAt, status, subStatus]);
 
-  return { timeString, percentRemaining };
+  return { timeString, percentRemaining, colorClass };
 }

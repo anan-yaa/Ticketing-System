@@ -6,12 +6,15 @@ interface SlaHealthTelemetryProps {
 }
 
 export const SlaHealthTelemetry: React.FC<SlaHealthTelemetryProps> = ({ ticket }) => {
-  const ttfrCountdown = useCountDown(ticket.ttfrDeadline, ticket.createdAt);
-  const resolutionCountdown = useCountDown(ticket.resolutionDeadline, ticket.createdAt);
+  const ttfrCountdown = useCountDown(ticket.ttfrDeadline, ticket.createdAt, ticket.status, ticket.subStatus);
+  const resolutionCountdown = useCountDown(ticket.resolutionDeadline, ticket.createdAt, ticket.status, ticket.subStatus);
 
   const ttfrCount = ttfrCountdown.timeString;
   const resolutionCount = resolutionCountdown.timeString;
   const resolutionPercent = resolutionCountdown.percentRemaining;
+  
+  const ttfrHookColor = ttfrCountdown.colorClass;
+  const resolutionHookColor = resolutionCountdown.colorClass;
 
   // Time to First Response (TTFR) compliance state checking
   const isPendingResponse = ticket.status === 'OPEN';
@@ -28,8 +31,21 @@ export const SlaHealthTelemetry: React.FC<SlaHealthTelemetryProps> = ({ ticket }
       ttfrTextClass = 'text-rose-500 animate-pulse font-bold';
       ttfrBadgeClass = 'border-rose-500/40 text-rose-500 bg-rose-950/40';
       ttfrBadgeText = 'SLA BREACHED';
+    } else if (ttfrCount === '✓ SLA MET') {
+      ttfrDisplayString = ttfrCount;
+      ttfrTextClass = ttfrHookColor;
+      ttfrBadgeClass = 'border-emerald-500/30 text-emerald-400 bg-emerald-950/40';
+      ttfrBadgeText = 'COMPLIANT ✓';
     } else {
       ttfrDisplayString = ttfrCount;
+      ttfrTextClass = ttfrHookColor;
+      if (ttfrHookColor === 'text-amber-500') {
+        ttfrBadgeClass = 'border-amber-500/30 text-amber-500 bg-amber-950/40';
+        ttfrBadgeText = 'CLOCK PAUSED';
+      } else {
+        ttfrBadgeClass = 'border-cyan-500/30 text-cyan-400 bg-cyan-950/40';
+        ttfrBadgeText = 'ACTIVE COUNTDOWN';
+      }
     }
   } else {
     // Acknowledged / In Progress / Closed
@@ -79,8 +95,21 @@ export const SlaHealthTelemetry: React.FC<SlaHealthTelemetryProps> = ({ ticket }
       resolutionTextClass = 'text-rose-500 animate-pulse font-bold';
       resolutionBadgeClass = 'border-rose-500/40 text-rose-500 bg-rose-950/40';
       resolutionBadgeText = 'SLA BREACHED';
+    } else if (resolutionCount === '✓ SLA MET') {
+      resolutionDisplayString = resolutionCount;
+      resolutionTextClass = resolutionHookColor;
+      resolutionBadgeClass = 'border-emerald-500/30 text-emerald-400 bg-emerald-950/40';
+      resolutionBadgeText = 'COMPLIANT ✓';
     } else {
       resolutionDisplayString = resolutionCount;
+      resolutionTextClass = resolutionHookColor;
+      if (resolutionHookColor === 'text-amber-500') {
+        resolutionBadgeClass = 'border-amber-500/30 text-amber-500 bg-amber-950/40';
+        resolutionBadgeText = 'CLOCK PAUSED';
+      } else {
+        resolutionBadgeClass = 'border-cyan-500/30 text-cyan-400 bg-cyan-950/40';
+        resolutionBadgeText = 'ACTIVE COUNTDOWN';
+      }
     }
   }
 

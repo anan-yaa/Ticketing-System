@@ -53,6 +53,10 @@ export const createTicketAdmin = async (ticket: {
   category?: string;
   source?: string;
   customerId?: string;
+  status?: string;
+  executeAt?: string | null;
+  isRecurring?: boolean;
+  cronExpression?: string;
 }): Promise<Ticket> => {
   const { data } = await api.post('/tickets', ticket);
   return data;

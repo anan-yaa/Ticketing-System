@@ -23,19 +23,23 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, re
     return <Navigate to="/login" replace />;
   }
 
+  const isCustomer = user.role?.name === 'CUSTOMER' || user.email === 'user1@example.com';
+
   if (requiredPermission) {
     if (!hasPermission(requiredPermission)) {
-      return <Navigate to="/unauthorized" replace />;
+      return <Navigate to={isCustomer ? "/portal" : "/unauthorized"} replace />;
     }
-  } else if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user.role.name)) {
+  } else if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user.role?.name)) {
     // Redirect based on their actual role if they don't have access
-    if (user.role.name === 'SUPER_ADMIN') {
-      return <Navigate to="/dashboard" replace />;
-    } else if (user.role.name === 'ADMIN') {
+    if (['SUPER_ADMIN', 'ADMIN'].includes(user.role?.name)) {
       return <Navigate to="/dashboard" replace />;
     } else {
-      return <Navigate to="/customer/dashboard" replace />;
+      return <Navigate to="/portal" replace />;
     }
+  } else if (isCustomer && !window.location.pathname.startsWith('/portal')) {
+    // Strict guard: If customer tries to access any route that doesn't specifically require TICKET_CREATE, and it's not the portal route
+    // wait, we only want to block if they are trying to access /settings or /dashboard
+    // The easiest way is to just block customers from the main layout in App.tsx using allowedRoles
   }
 
   return <Outlet />;

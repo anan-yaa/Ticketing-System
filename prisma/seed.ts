@@ -62,7 +62,10 @@ async function main() {
   const roles = [
     { name: 'SUPER_ADMIN', description: 'Super Administrator with full system control', isSystem: true },
     { name: 'ADMIN', description: 'Administrator with operational control', isSystem: true },
-    { name: 'CUSTOMER', description: 'External customer accessing system features', isSystem: true }
+    { name: 'CUSTOMER', description: 'External customer accessing system features', isSystem: true },
+    { name: 'L1_ENGINEER', description: 'Tier 1 Support Engineer', isSystem: true },
+    { name: 'L2_ENGINEER', description: 'Tier 2 Analyst', isSystem: true },
+    { name: 'L3_ENGINEER', description: 'Tier 3 Architect', isSystem: true }
   ];
 
   for (const r of roles) {
@@ -118,16 +121,36 @@ async function main() {
       permissionId: p.id
     }));
   await prisma.rolePermission.createMany({ data: customerMappings });
-  console.log('Seeded role-permission mappings');
 
+  // Map L1, L2, L3 Engineers
+  const engineerPermKeys = ['TICKET_VIEW', 'TICKET_UPDATE', 'USER_VIEW', 'SETTINGS_ACCESS', 'AUDIT_VIEW'];
+  const l1Role = await prisma.role.findUnique({ where: { name: 'L1_ENGINEER' } });
+  const l2Role = await prisma.role.findUnique({ where: { name: 'L2_ENGINEER' } });
+  const l3Role = await prisma.role.findUnique({ where: { name: 'L3_ENGINEER' } });
+
+  const engineerRoles = [l1Role, l2Role, l3Role].filter(r => r !== null);
+  for (const engRole of engineerRoles) {
+    if (engRole) {
+      await prisma.rolePermission.deleteMany({ where: { roleId: engRole.id } });
+      const mappings = allPerms
+        .filter(p => engineerPermKeys.includes(p.key))
+        .map(p => ({
+          roleId: engRole.id,
+          permissionId: p.id
+        }));
+      await prisma.rolePermission.createMany({ data: mappings });
+    }
+  }
+
+  console.log('Seeded role-permission mappings');
   // 4. Seed SuperAdmin User Linked to Role
   const superAdmin = await prisma.user.upsert({
-    where: { email: 'superadmin@ticketing.internal' },
+    where: { email: 'superadmin@example.com' },
     update: {
       roleId: superAdminRole.id,
     },
     create: {
-      email: 'superadmin@ticketing.internal',
+      email: 'superadmin@example.com',
       passwordHash,
       name: 'System Admin',
       systemRole: Role.SUPER_ADMIN,
@@ -138,6 +161,34 @@ async function main() {
 
   console.log({ superAdmin });
 
+  const secureHash = await bcrypt.hash('Password123', 10);
+
+  if (l1Role) {
+    await prisma.user.upsert({
+      where: { email: 'l1@engineer.com' },
+      update: { accessTier: 'L1_SUPPORT', roleId: l1Role.id, systemRole: Role.L1_ENGINEER, passwordHash: secureHash },
+      create: { email: 'l1@engineer.com', name: 'L1 Engineer', passwordHash: secureHash, accessTier: 'L1_SUPPORT', systemRole: Role.L1_ENGINEER, status: UserStatus.ACTIVE, roleId: l1Role.id }
+    });
+    console.log('Seeded test user L1 Engineer (L1_SUPPORT)');
+  }
+
+  if (l2Role) {
+    await prisma.user.upsert({
+      where: { email: 'l2@engineer.com' },
+      update: { accessTier: 'L2_ANALYST', roleId: l2Role.id, systemRole: Role.L2_ENGINEER, passwordHash: secureHash },
+      create: { email: 'l2@engineer.com', name: 'L2 Engineer', passwordHash: secureHash, accessTier: 'L2_ANALYST', systemRole: Role.L2_ENGINEER, status: UserStatus.ACTIVE, roleId: l2Role.id }
+    });
+    console.log('Seeded test user L2 Engineer (L2_ANALYST)');
+  }
+
+  if (l3Role) {
+    await prisma.user.upsert({
+      where: { email: 'l3@engineer.com' },
+      update: { accessTier: 'L3_ARCHITECT', roleId: l3Role.id, systemRole: Role.L3_ENGINEER, passwordHash: secureHash },
+      create: { email: 'l3@engineer.com', name: 'L3 Engineer', passwordHash: secureHash, accessTier: 'L3_ARCHITECT', systemRole: Role.L3_ENGINEER, status: UserStatus.ACTIVE, roleId: l3Role.id }
+    });
+    console.log('Seeded test user L3 Engineer (L3_ARCHITECT)');
+  }
   // Link any users without a roleId to their corresponding system role record
   const users = await prisma.user.findMany({ where: { roleId: null } });
   for (const u of users) {
@@ -195,6 +246,7 @@ async function main() {
     { name: 'RIMS', description: 'Remote Infrastructure Management Services' },
     { name: 'MSS', description: 'Managed Security Services' },
     { name: 'WPE', description: 'Workplace Endpoints' },
+    { name: 'MAINTENANCE', description: 'MAINTENANCE - SYSTEM INFRASTRUCTURE & DISPATCH' },
   ];
 
   const servicesMap: { [key: string]: string } = {};

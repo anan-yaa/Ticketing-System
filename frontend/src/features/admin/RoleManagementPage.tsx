@@ -179,10 +179,10 @@ export const RoleManagementPage: React.FC = () => {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* LEFT PANEL: ROLES DIRECTORY */}
-      <div className="w-96 border-r border-white/5 flex flex-col min-h-0 bg-black/20">
+      <div className="w-96 border-r flex flex-col min-h-0 theme-card-panel border-y-0 border-l-0 rounded-none shadow-none">
         <div className="p-6 border-b border-white/5 flex justify-between items-center bg-black/10 shrink-0">
           <div>
-            <h2 className="text-lg font-black tracking-wider text-white uppercase">Roles Directory</h2>
+            <h2 className="text-lg font-black tracking-wider theme-heading-text uppercase">Roles Directory</h2>
 
           </div>
           <button
@@ -209,8 +209,8 @@ export const RoleManagementPage: React.FC = () => {
                   key={role.id}
                   onClick={() => setSelectedRoleId(role.id)}
                   className={`w-full text-left p-4 rounded-2xl border transition-all flex flex-col gap-2 group relative overflow-hidden ${isSelected
-                      ? 'bg-white/10 border-cyan-500/50 text-white shadow-[0_0_20px_rgba(34,211,238,0.1)]'
-                      : 'bg-white/5 border-white/5 hover:border-white/15 text-slate-300 hover:bg-white/10'
+                      ? 'bg-white/10 border-cyan-500/50 theme-heading-text shadow-[0_0_20px_rgba(34,211,238,0.1)]'
+                      : 'theme-card-panel hover:border-white/15 theme-body-subtext hover:bg-white/10'
                     }`}
                 >
                   {isSelected && (
@@ -228,7 +228,7 @@ export const RoleManagementPage: React.FC = () => {
                     </span>
                   </div>
                   {role.description && (
-                    <p className="text-xs text-slate-500 line-clamp-2 pr-2">
+                    <p className="text-xs theme-body-subtext line-clamp-2 pr-2">
                       {role.description}
                     </p>
                   )}
@@ -258,7 +258,7 @@ export const RoleManagementPage: React.FC = () => {
             <div className="p-8 border-b border-white/5 bg-black/10 flex justify-between items-start gap-6 shrink-0">
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
-                  <h3 className="text-2xl font-black tracking-widest uppercase text-white">
+                  <h3 className="text-2xl font-black tracking-widest uppercase theme-heading-text">
                     {selectedRole.name}
                   </h3>
                   {selectedRole.isSystem ? (
@@ -275,7 +275,7 @@ export const RoleManagementPage: React.FC = () => {
                   )}
                 </div>
                 {selectedRole.description && (
-                  <p className="text-sm text-slate-400 font-sans max-w-3xl">
+                  <p className="text-sm theme-body-subtext font-sans max-w-3xl">
                     {selectedRole.description}
                   </p>
                 )}
@@ -307,13 +307,13 @@ export const RoleManagementPage: React.FC = () => {
             {/* Permission checklist area */}
             <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
               <div>
-                <h4 className="text-sm font-black tracking-wider text-white uppercase mb-2">Permissions Matrix</h4>
+                <h4 className="text-sm font-black tracking-wider theme-heading-text uppercase mb-2">Permissions Matrix</h4>
                 <p className="text-xs text-slate-500 font-sans mb-6">Select permissions authorized for this role. System roles will enforce structural restrictions under security policies.</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {permissionGroups.map(group => (
-                  <div key={group.module} className="bg-white/5 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
+                  <div key={group.module} className="theme-card-panel rounded-2xl p-6 flex flex-col gap-4">
                     <h5 className="text-xs font-black tracking-widest text-cyan-400 border-b border-white/5 pb-2 uppercase">
                       {group.module} Management
                     </h5>
@@ -323,9 +323,9 @@ export const RoleManagementPage: React.FC = () => {
                         return (
                           <label
                             key={perm.id}
-                            className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer select-none ${isChecked
-                                ? 'bg-white/5 border-cyan-500/20 text-white'
-                                : 'bg-transparent border-transparent text-slate-400 hover:bg-white/5 hover:text-slate-300'
+                            className={`flex items-start gap-3 p-3 rounded-xl transition-all cursor-pointer select-none ${isChecked
+                                ? 'bg-white/5 border border-cyan-500/20 theme-heading-text'
+                                : 'permission-matrix-item theme-body-subtext hover:bg-white/5 hover:text-slate-300'
                               }`}
                           >
                             <input
@@ -347,7 +347,7 @@ export const RoleManagementPage: React.FC = () => {
                             </span>
                             <div className="flex flex-col gap-0.5">
                               <span className="text-xs font-bold font-mono tracking-wide">{perm.key}</span>
-                              <span className="text-[10px] text-slate-500">{perm.label}</span>
+                              <span className="text-[10px] theme-body-subtext">{perm.label}</span>
                             </div>
                           </label>
                         );
@@ -436,9 +436,9 @@ export const RoleManagementPage: React.FC = () => {
                           return (
                             <label
                               key={perm.id}
-                              className={`flex items-start gap-2 p-2.5 rounded-xl border transition-all cursor-pointer select-none text-[10px] ${isChecked
-                                  ? 'bg-cyan-500/10 border-cyan-500/30 text-white font-semibold'
-                                  : 'bg-black/20 border-white/5 text-slate-400 hover:bg-white/5 hover:text-slate-300'
+                              className={`flex items-start gap-2 p-2.5 rounded-xl transition-all cursor-pointer select-none text-[10px] ${isChecked
+                                  ? 'bg-cyan-500/10 border border-cyan-500/30 theme-heading-text font-semibold'
+                                  : 'permission-matrix-item theme-body-subtext hover:bg-white/5 hover:text-slate-300'
                                 }`}
                             >
                               <input
@@ -465,7 +465,7 @@ export const RoleManagementPage: React.FC = () => {
                               </span>
                               <div className="flex flex-col">
                                 <span className="font-bold font-mono tracking-wide">{perm.key}</span>
-                                <span className="text-[8px] text-slate-500 line-clamp-1">{perm.label}</span>
+                                <span className="text-[8px] theme-body-subtext line-clamp-1">{perm.label}</span>
                               </div>
                             </label>
                           );

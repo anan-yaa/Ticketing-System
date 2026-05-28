@@ -67,6 +67,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials.');
     }
 
+    console.log('[AuthService] Validating login. Extracted password length:', password?.length, 'Extracted hash length:', user?.passwordHash?.length);
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials.');
@@ -114,7 +115,8 @@ export class AuthService {
       userId: user.id,
       roleId: resolvedRoleId,
       email: user.email,
-      role: roleName,
+      role: user.systemRole,
+      accessTier: (user as any).accessTier || user.systemRole || 'L1',
       permissions: permissionKeys,
       status: user.status
     };

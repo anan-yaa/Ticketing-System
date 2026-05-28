@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import api from '../../api/axios';
 import {
   fetchUsers,
@@ -40,6 +41,7 @@ const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 
 
 const ProfileSettings: React.FC = () => {
   const { user, hasPermission } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<'personal' | 'security' | 'directory' | 'roles' | 'audit' | 'master-config'>('personal');
@@ -196,12 +198,12 @@ const ProfileSettings: React.FC = () => {
 
 
         {/* Sub-tab menu selection bar */}
-        <div className="flex flex-wrap gap-2 mb-8 border-b border-white/5 pb-6">
+        <div className="flex flex-wrap gap-2 mb-8 border-b border-slate-200 dark:border-white/5 pb-6">
           <button
             onClick={() => setActiveTab('personal')}
             className={`px-5 py-2.5 font-mono text-xs uppercase tracking-widest transition-all rounded-xl border ${activeTab === 'personal'
               ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
-              : 'border-transparent text-slate-400 hover:text-slate-200 transition-all duration-200 hover:bg-white/5'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-white/5'
               }`}
           >
             Personal Information
@@ -211,7 +213,7 @@ const ProfileSettings: React.FC = () => {
             onClick={() => setActiveTab('security')}
             className={`px-5 py-2.5 font-mono text-xs uppercase tracking-widest transition-all rounded-xl border ${activeTab === 'security'
               ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
-              : 'border-transparent text-slate-400 hover:text-slate-200 transition-all duration-200 hover:bg-white/5'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-white/5'
               }`}
           >
             Security
@@ -222,7 +224,7 @@ const ProfileSettings: React.FC = () => {
               onClick={() => setActiveTab('directory')}
               className={`px-5 py-2.5 font-mono text-xs uppercase tracking-widest transition-all rounded-xl border ${activeTab === 'directory'
                 ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
-                : 'border-transparent text-slate-400 hover:text-slate-200 transition-all duration-200 hover:bg-white/5'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-white/5'
                 }`}
             >
               User Directory
@@ -234,7 +236,7 @@ const ProfileSettings: React.FC = () => {
               onClick={() => setActiveTab('roles')}
               className={`px-5 py-2.5 font-mono text-xs uppercase tracking-widest transition-all rounded-xl border ${activeTab === 'roles'
                 ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
-                : 'border-transparent text-slate-400 hover:text-slate-200 transition-all duration-200 hover:bg-white/5'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-white/5'
                 }`}
             >
               Roles & Permissions
@@ -246,7 +248,7 @@ const ProfileSettings: React.FC = () => {
               onClick={() => setActiveTab('audit')}
               className={`px-5 py-2.5 font-mono text-xs uppercase tracking-widest transition-all rounded-xl border ${activeTab === 'audit'
                 ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
-                : 'border-transparent text-slate-400 hover:text-slate-200 transition-all duration-200 hover:bg-white/5'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-white/5'
                 }`}
             >
               Audit Log
@@ -258,7 +260,7 @@ const ProfileSettings: React.FC = () => {
               onClick={() => setActiveTab('master-config')}
               className={`px-5 py-2.5 font-mono text-xs uppercase tracking-widest transition-all rounded-xl border ${activeTab === 'master-config'
                 ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
-                : 'border-transparent text-slate-400 hover:text-slate-200 transition-all duration-200 hover:bg-white/5'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-white/5'
                 }`}
             >
               Master Data Config
@@ -271,8 +273,8 @@ const ProfileSettings: React.FC = () => {
           {/* PERSONAL INFORMATION */}
           {activeTab === 'personal' && (
             <div className="max-w-xl mx-auto space-y-6 animate-in fade-in duration-300">
-              <p className="text-sm font-mono text-slate-400 uppercase tracking-widest">User Profile</p>
-              <div className="bg-black/30 p-6 rounded-2xl border border-white/10 space-y-4">
+              <p className="theme-body-subtext uppercase">User Profile</p>
+              <div className="theme-card-panel p-6 space-y-4 transition-all duration-300">
                 <div>
                   <span className="block text-slate-500 font-mono text-xs uppercase mb-1">Name</span>
                   <span className="text-lg font-bold text-white">{user?.name}</span>
@@ -283,10 +285,28 @@ const ProfileSettings: React.FC = () => {
                 </div>
                 <div>
                   <span className="block text-slate-500 font-mono text-xs uppercase mb-2">Assigned Role Badge</span>
-                  <span className={`inline-flex items-center px-3 py-1 text-[10px] font-black tracking-widest uppercase rounded-lg border bg-black/40 ${getRoleBadge(user?.role?.name || '')}`}>
-                    {(user?.role?.name || '').replace('_', ' ')}
+                  <span className={`inline-flex items-center px-3 py-1 text-[10px] font-black tracking-widest uppercase rounded-lg border bg-black/40 transition-all duration-300 ${getRoleBadge(user?.role?.name || '')}`}>
+                    {(user?.role?.name === 'CUSTOMER' ? 'USER' : (user?.role?.name || '')).replace('_', ' ')}
                   </span>
                 </div>
+              </div>
+
+              {/* THEME PREFERENCE BLOCK */}
+              <div className="theme-card-panel p-6 flex items-center justify-between transition-all duration-300">
+                <div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-widest">Interface Appearance</h3>
+                  <p className="theme-body-subtext mt-1">Toggle Dark mode and Light mode</p>
+                </div>
+                <button
+                  onClick={toggleTheme}
+                  className={`relative inline-flex h-8 w-16 items-center rounded-full transition-all duration-300 focus:outline-none shadow-inner ${theme === 'dark' ? 'bg-violet-600' : 'bg-slate-300'}`}
+                >
+                  <span
+                    className={`inline-flex h-6 w-6 transform rounded-full bg-white transition-all duration-300 items-center justify-center shadow-md ${theme === 'dark' ? 'translate-x-9' : 'translate-x-1'}`}
+                  >
+                    <span className="text-xs leading-none">{theme === 'dark' ? '🌙' : '☀️'}</span>
+                  </span>
+                </button>
               </div>
             </div>
           )}
@@ -401,7 +421,7 @@ const ProfileSettings: React.FC = () => {
                             <td className="p-5 text-slate-400 font-mono text-xs">{u.email}</td>
                             <td className="p-5">
                               <span className={`inline-flex items-center px-3 py-1 text-[10px] font-black tracking-widest uppercase rounded-lg border bg-black/40 ${getRoleBadge(u.role?.name || '')}`}>
-                                {(u.role?.name || '').replace('_', ' ')}
+                                {(u.role?.name === 'CUSTOMER' ? 'USER' : (u.role?.name || '')).replace('_', ' ')}
                               </span>
                             </td>
                             <td className="p-5">
