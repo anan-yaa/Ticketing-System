@@ -4,132 +4,395 @@
 
 @layer base {
   *, ::before, ::after {
-    @apply transition-all duration-300;
+    @apply transition-all duration-150 ease-in-out;
   }
 }
 
 @layer components {
-  /* 1. UNIVERSAL CANVAS & CONTAINERS */
-  html.light body, 
-  html.light .min-h-screen, 
-  html.light main {
-    @apply bg-[#f4f6fa] !important;
-  }
-
-  /* Clean, universal rule handling for panels */
+  /* ========================================================
+     DARK MODE (Default) - Preserved exactly as it was
+     ======================================================== */
   .theme-card-panel {
-    @apply bg-slate-900 border border-slate-800/60 rounded-xl; /* Clear dark mode default */
+    @apply bg-slate-900 border border-slate-800/60 rounded-xl;
   }
-
-  /* High-contrast border alignment rule for Light Mode */
-  html.light .theme-card-panel {
-    @apply bg-white border border-slate-200/80 shadow-[0_2px_4px_rgba(0,0,0,0.02)] rounded-xl text-slate-900 !important;
-  }
-
-  /* Inner structural checklist/matrix frames */
   .permission-matrix-item {
     @apply border border-slate-800/40;
   }
-  html.light .permission-matrix-item {
-    @apply border border-slate-300 bg-white !important;
-  }
-
   .theme-card-sub-panel {
     @apply bg-black/40 border-white/5;
   }
-  html.light .theme-card-sub-panel {
-    @apply bg-slate-50 border-slate-200 !important;
-  }
-
-  /* 2. MAXIMUM CONTRAST TYPOGRAPHY */
   .theme-heading-text {
     @apply text-slate-100 font-semibold;
   }
+  .theme-body-subtext {
+    @apply text-slate-400 font-medium text-xs tracking-wider;
+  }
+  .role-description {
+    @apply text-slate-400 text-xs;
+  }
+
+  /* ========================================================
+     LIGHT MODE OVERRIDES - Vibrant, Sleek, High-Contrast
+     ======================================================== */
+
+  /* 1. Global Canvas & Typography */
+  html.light body, 
+  html.light .min-h-screen, 
+  html.light main {
+    background-color: #F4F6FB !important;
+    color: #111827 !important;
+  }
+
+  /* Headings & Text */
   html.light h1, 
   html.light h2, 
+  html.light h3, 
+  html.light h4, 
+  html.light h5, 
+  html.light h6, 
   html.light .role-header,
   html.light .theme-heading-text,
   html.light .text-white,
   html.light .text-slate-100,
-  html.light .text-slate-200 {
-    @apply text-slate-900 font-semibold !important;
+  html.light .text-slate-200,
+  html.light .text-slate-300 {
+    color: #111827 !important;
+  }
+  
+  html.light .theme-body-subtext,
+  html.light .text-slate-400,
+  html.light .text-slate-500 {
+    color: #6B7280 !important;
+  }
+  
+  html.light .uppercase.text-xs,
+  html.light .uppercase.text-\[10px\],
+  html.light .uppercase.text-\[9px\] {
+    letter-spacing: 0.1em !important;
+    font-weight: 600 !important;
   }
 
-  /* Global Theme Body Muted Subtext Component */
-  .theme-body-subtext {
-    @apply text-slate-400 dark:text-slate-400 font-medium text-xs tracking-wider;
-  }
-
-  /* Clean Light Mode Explicit Override Handle */
-  html.light .theme-body-subtext {
-    color: #64748b !important; /* Maps exactly to text-slate-500 using solid hex to prevent PostCSS circular processing loops */
-  }
-
-  /* Custom Role Description Control Handle */
-  .role-description {
-    @apply text-slate-400 dark:text-slate-400 text-xs;
-  }
   html.light .role-description {
-    color: #475569 !important; /* Maps to text-slate-600 to give our role descriptions premium high contrast readability */
+    color: #6B7280 !important;
   }
 
-  /* Fix for buttons that legitimately need white text */
+  /* Fix explicitly white text in light mode (e.g., primary buttons) */
   html.light button.text-white,
-  html.light button .text-white {
+  html.light button .text-white,
+  html.light .btn-primary,
+  html.light .bg-gradient-to-r.from-cyan-500.to-blue-600 {
     color: #ffffff !important;
   }
 
-  /* 3. ACCENT & ACTION ELEMENTS */
-  html.light .text-cyan-400,
-  html.light .text-cyan-300 {
-    @apply text-blue-700 !important;
+  /* 2. Containers & Cards */
+  html.light .theme-card-panel,
+  html.light .bg-slate-900,
+  html.light .bg-slate-900\/90,
+  html.light .bg-slate-800,
+  html.light .bg-\[\#1a1f2c\] {
+    background-color: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07) !important;
+    border-radius: 14px !important;
+    color: #111827 !important;
   }
 
+  /* Side panels / sub panels */
+  html.light .theme-card-sub-panel,
+  html.light .bg-black\/40 {
+    background-color: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 12px !important;
+  }
+
+  html.light .permission-matrix-item {
+    border-color: #E2E8F0 !important;
+    background-color: #F8FAFC !important;
+  }
+
+  /* Dashboard Active Users / System Defined Roles specific - target via grid child */
+  html.light .grid > .theme-card-panel {
+     border-radius: 14px !important;
+  }
+
+  /* Dashboard Stats Cards */
+  html.light .grid > .theme-card-panel:has(.text-cyan-400),
+  html.light .grid > .theme-card-panel:has(.text-5xl) {
+    border-left: 4px solid #5B5BF6 !important;
+    box-shadow: 0 2px 8px rgba(91,91,246,0.08) !important;
+  }
+
+  /* Dashboard Stat Numbers (which use text-cyan-400 or text-5xl) */
+  html.light .text-5xl,
+  html.light .text-4xl.text-cyan-400 {
+    color: #5B5BF6 !important;
+    font-size: 3rem !important;
+    font-weight: 700 !important;
+  }
+
+  /* 3. Header / Navbar */
+  html.light header,
+  html.light nav.bg-slate-900 {
+    background-color: #FFFFFF !important;
+    border-bottom: 1px solid #E2E8F0 !important;
+  }
+  
+  html.light header h1.bg-gradient-to-r,
+  html.light .brand-logo,
+  html.light span.bg-gradient-to-r.text-transparent {
+    background: linear-gradient(90deg, #5B5BF6, #0EA5C9) !important;
+    -webkit-background-clip: text !important;
+    color: transparent !important;
+  }
+
+  /* User Avatar */
+  html.light .bg-cyan-500.rounded-full {
+    background-color: #5B5BF6 !important;
+    color: #FFFFFF !important;
+  }
+
+  /* LOG OUT Button */
+  html.light button:has(span:contains("LOG OUT")),
+  html.light button:contains("LOG OUT"),
+  html.light .hover\:bg-white\/5.text-rose-400 {
+    background-color: #5B5BF6 !important;
+    color: #FFFFFF !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    border: none !important;
+  }
+  html.light button:has(span:contains("LOG OUT")):hover,
+  html.light button:contains("LOG OUT"):hover,
+  html.light .hover\:bg-white\/5.text-rose-400:hover {
+    background-color: #4747E0 !important;
+  }
+
+  /* 4. Action Buttons (Create Ticket, Add User) */
+  html.light button.bg-gradient-to-r.from-cyan-500.to-blue-600 {
+    background: #5B5BF6 !important;
+    color: #FFFFFF !important;
+    border-radius: 10px !important;
+    padding: 10px 20px !important;
+    font-weight: 600 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  html.light button.bg-gradient-to-r.from-cyan-500.to-blue-600:hover {
+    background: #4747E0 !important;
+    box-shadow: 0 4px 12px rgba(91,91,246,0.25) !important;
+    transform: translateY(-1px) !important;
+  }
+
+  /* 5. Tickets Page - Left Panel Queue */
+  html.light button.bg-cyan-500\/10 {
+    background-color: #EEF2FF !important;
+    color: #5B5BF6 !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+  html.light button.bg-cyan-500\/10 span.text-cyan-400,
+  html.light button.bg-cyan-500\/10 span.text-cyan-600\/70 {
+    color: #5B5BF6 !important;
+  }
+  
+  html.light button.hover\:bg-white\/5:not(.bg-cyan-500\/10) {
+    color: #6B7280 !important;
+  }
+  
+  /* Count badges */
+  html.light span.font-bold.text-slate-300 {
+    background-color: #F1F5F9 !important;
+    color: #6B7280 !important;
+    border-radius: 99px !important;
+    padding: 1px 8px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+  }
+
+  /* Empty state text */
+  html.light .text-slate-500.uppercase {
+    color: #9CA3AF !important;
+  }
+
+  /* 6. Settings Page Tabs */
+  html.light .border-b.border-white\/10:has(button) {
+    border-bottom: 2px solid #E2E8F0 !important;
+  }
+  html.light button.border-cyan-400.text-cyan-400 {
+    color: #5B5BF6 !important;
+    border-bottom: 2px solid #5B5BF6 !important;
+    font-weight: 600 !important;
+    background-color: transparent !important;
+  }
+  html.light button.border-transparent.text-slate-400:not(:hover) {
+    color: #6B7280 !important;
+    font-weight: 500 !important;
+  }
+
+  /* 7. User Directory Table */
+  html.light table th,
+  html.light thead tr {
+    background-color: #F8FAFC !important;
+    color: #6B7280 !important;
+    font-size: 11px !important;
+    letter-spacing: 0.08em !important;
+    font-weight: 600 !important;
+    border-bottom: 1px solid #E2E8F0 !important;
+  }
+  html.light table tr,
+  html.light tbody tr {
+    background-color: #FFFFFF !important;
+    border-bottom: 1px solid #F1F5F9 !important;
+    border-top: none !important;
+  }
+  html.light table tr:hover,
+  html.light tbody tr:hover {
+    background-color: #F8FAFF !important;
+  }
+  html.light td.text-white,
+  html.light td.font-bold,
+  html.light td.font-semibold {
+    color: #111827 !important;
+    font-weight: 500 !important;
+  }
+  html.light td.text-slate-400 {
+    color: #6B7280 !important;
+  }
+
+  /* Badges - Engineer / Admin */
+  html.light span.bg-cyan-500\/20,
+  html.light span.bg-indigo-500\/20,
+  html.light span.border-cyan-500\/30 {
+    background-color: #1E1E2E !important;
+    color: #A5B4FC !important;
+    font-size: 11px !important;
+    border-radius: 6px !important;
+    padding: 3px 10px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.05em !important;
+    border: none !important;
+  }
+  html.light span:contains("SUPER ADMIN"),
+  html.light span.bg-rose-500\/20 {
+    background-color: #FEF3C7 !important;
+    color: #92400E !important;
+    font-size: 11px !important;
+    border-radius: 6px !important;
+    padding: 3px 10px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.05em !important;
+    border: none !important;
+  }
+
+  /* Status Pills */
+  html.light span.bg-emerald-500\/20:contains("ACTIVE"),
+  html.light span:contains("ACTIVE") {
+    background-color: #DCFCE7 !important;
+    color: #166534 !important;
+    border-radius: 99px !important;
+    padding: 2px 10px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    border: none !important;
+  }
+  html.light span.bg-emerald-500\/20:contains("ACTIVE")::before,
+  html.light span:contains("ACTIVE")::before {
+    content: '• ';
+    color: #22C55E;
+    font-size: 16px;
+    vertical-align: middle;
+    line-height: 1;
+  }
+
+  /* Toggles & Icons */
+  html.light .bg-cyan-500.w-10 {
+    background-color: #5B5BF6 !important;
+  }
+  html.light .bg-slate-700.w-10 {
+    background-color: #D1D5DB !important;
+  }
+  html.light button.text-rose-400,
+  html.light button.text-rose-500 {
+    color: #9CA3AF !important;
+  }
+  html.light button.text-rose-400:hover,
+  html.light button.text-rose-500:hover {
+    color: #EF4444 !important;
+  }
+
+  /* 8. Search Bar */
+  html.light input[type="text"],
+  html.light input[type="search"],
+  html.light input[placeholder*="Search"] {
+    background-color: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 10px !important;
+    color: #111827 !important;
+  }
+  html.light input::placeholder {
+    color: #9CA3AF !important;
+  }
+  html.light input:focus {
+    border-color: #5B5BF6 !important;
+    box-shadow: 0 0 0 3px rgba(91,91,246,0.1) !important;
+    outline: none !important;
+  }
+
+  /* 9. Dynamic Status Overrides (from old CSS, adapted to vibrant palette) */
+  html.light .text-cyan-400,
+  html.light .text-cyan-300 {
+    color: #0EA5C9 !important;
+  }
   html.light .bg-cyan-500\/10,
   html.light .bg-cyan-500\/15,
   html.light .bg-cyan-500\/20 {
-    @apply bg-blue-50 border-blue-200 text-blue-700 !important;
+    background-color: #E0F2FE !important;
+    border-color: #BAE6FD !important;
+    color: #0284C7 !important;
   }
-
-  /* Saturated Royal Blue for Interactive */
-  html.light button.bg-cyan-500,
-  html.light .bg-gradient-to-r.from-cyan-500.to-blue-600,
-  html.light button.bg-gradient-to-r.from-cyan-500.to-blue-600 {
-    @apply bg-blue-600 bg-none border-transparent !important;
-    color: #ffffff !important;
-  }
-
-  /* Deep Violet for Permission Switches */
-  html.light .bg-emerald-500\/20,
-  html.light .bg-emerald-400,
-  html.light .bg-emerald-500 {
-    @apply bg-violet-600 bg-none border-violet-600 !important;
-    color: #ffffff !important;
-  }
-
-  /* 4. DYNAMIC SYSTEM STATUS ACCENTS */
-  html.light .text-red-400 {
-    @apply bg-red-50 text-red-600 border border-red-200/60 font-medium shadow-none !important;
-  }
-
+  html.light .text-red-400,
   html.light .status-p1,
   html.light .text-rose-400,
   html.light .bg-rose-500\/10,
   html.light span.text-rose-400 {
-    @apply text-red-700 bg-red-50 border border-red-200 !important;
+    background-color: #FEF2F2 !important;
+    border: 1px solid #FECACA !important;
+    color: #EF4444 !important;
+    box-shadow: none !important;
   }
-
   html.light .status-open,
   html.light .text-emerald-400,
   html.light .bg-emerald-500\/10,
   html.light span.text-emerald-400 {
-    @apply text-blue-700 bg-blue-50 border border-blue-200 !important;
+    background-color: #F0FDF4 !important;
+    border: 1px solid #BBF7D0 !important;
+    color: #22C55E !important;
   }
-
   html.light .status-in-progress,
   html.light .text-amber-400,
   html.light .bg-amber-500\/10,
   html.light span.text-amber-400 {
-    @apply text-violet-700 bg-violet-50 border border-violet-200 !important;
+    background-color: #FFFBEB !important;
+    border: 1px solid #FDE68A !important;
+    color: #F59E0B !important;
   }
+
+}
+
+/* Accent colored scrollbars for light mode */
+html.light ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+html.light ::-webkit-scrollbar-track {
+  background: #F4F6FB;
+}
+html.light ::-webkit-scrollbar-thumb {
+  background: #5B5BF6;
+  border-radius: 4px;
+}
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #4747E0;
 }
