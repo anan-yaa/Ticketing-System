@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -44,7 +45,10 @@ const ProfileSettings: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<'personal' | 'security' | 'directory' | 'roles' | 'audit' | 'master-config'>('personal');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<'personal' | 'security' | 'directory' | 'roles' | 'audit' | 'master-config'>(
+    (location.state as any)?.tab || 'personal'
+  );
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   const showUserDirectory = hasPermission('USER_VIEW');

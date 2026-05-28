@@ -57,11 +57,11 @@ export const SlaMasterLedger: React.FC = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => {
-                setIsSlaModalOpen(false); // Close any floating rules config overlays safely
-                navigate("/admin/master-data"); // Move directly back to the dashboard grid
+                setIsSlaModalOpen(false);
+                navigate("/settings");
               }}
               className="group p-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 shadow-sm flex items-center justify-center"
-              title="Return to Master Data Configuration"
+              title="Return to Master Configuration"
             >
               <svg
                 className="w-4 h-4 text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors"
