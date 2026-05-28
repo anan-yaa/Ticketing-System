@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
+import { ConfigureSlaModal } from './ConfigureSlaModal';
 
 interface ConfigItem {
   id: string;
@@ -11,6 +13,7 @@ interface ConfigItem {
 }
 
 export const MasterDataConfig: React.FC = () => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -21,23 +24,15 @@ export const MasterDataConfig: React.FC = () => {
   const [newCategory, setNewCategory] = useState('');
   const [newCategoryDesc, setNewCategoryDesc] = useState('');
 
-  const [newSlaName, setNewSlaName] = useState('');
-  const [newSlaDesc, setNewSlaDesc] = useState('');
-  const [newSlaResponse, setNewSlaResponse] = useState<number | ''>('');
-  const [newSlaResponseUnit, setNewSlaResponseUnit] = useState('Mins');
-  const [newSlaResolution, setNewSlaResolution] = useState<number | ''>('');
-  const [newSlaResolutionUnit, setNewSlaResolutionUnit] = useState('Hours');
+  const [isSlaModalOpen, setIsSlaModalOpen] = useState(false);
+  const [expandedSlaRule, setExpandedSlaRule] = useState<string | null>(null);
 
-  const [slaTiers, setSlaTiers] = useState([
-    { id: 'p1', name: 'P1 - CRITICAL THREAT', description: 'Immediate severe business disruption. High data risk.', response: 15, responseUnit: 'Mins', resolution: 2, resolutionUnit: 'Hours', isActive: true },
-    { id: 'p2', name: 'P2 - HIGH EFFICIENCY', description: 'Significant operational impact. Partial system failure.', response: 1, responseUnit: 'Hours', resolution: 8, resolutionUnit: 'Hours', isActive: true },
-    { id: 'p3', name: 'P3 - MEDIUM LEVEL', description: 'Minor feature degradation. No immediate risk.', response: 4, responseUnit: 'Hours', resolution: 24, resolutionUnit: 'Hours', isActive: true },
-    { id: 'p4', name: 'P4 - LOW RE-ROUTE', description: 'Cosmetic issues or general inquiries.', response: 24, responseUnit: 'Hours', resolution: 5, resolutionUnit: 'Days', isActive: false },
-  ]);
-
-  const handleSlaToggle = (id: string) => {
-    setSlaTiers(prev => prev.map(t => t.id === id ? { ...t, isActive: !t.isActive } : t));
-  };
+  const SLA_COMBINATIONS = [
+    { id: 'cloud_incident', label: 'CLOUD - INCIDENT', p1: { desc: 'Critical Outage / Server Down', respH: 0, respM: 15, resH: 2, resM: 0 }, p2: { desc: 'High Impact / Degradation', respH: 0, respM: 30, resH: 4, resM: 0 }, p3: { desc: 'Normal Priority Request', respH: 2, respM: 0, resH: 24, resM: 0 }, p4: { desc: 'Low Priority Inquiry', respH: 24, respM: 0, resH: 168, resM: 0 } },
+    { id: 'network_incident', label: 'NETWORK - INCIDENT', p1: { desc: 'Total Routing Failure', respH: 0, respM: 10, resH: 1, resM: 30 }, p2: { desc: 'Subnet Unreachable', respH: 0, respM: 20, resH: 3, resM: 0 }, p3: { desc: 'Intermittent Latency', respH: 1, respM: 0, resH: 12, resM: 0 }, p4: { desc: 'Port Activation', respH: 12, respM: 0, resH: 72, resM: 0 } },
+    { id: 'rims_maintenance', label: 'RIMS - MAINTENANCE', p1: { desc: 'Emergency Patching', respH: 1, respM: 0, resH: 8, resM: 0 }, p2: { desc: 'Zero-day Mitigation', respH: 2, respM: 0, resH: 24, resM: 0 }, p3: { desc: 'Routine Backup Check', respH: 8, respM: 0, resH: 48, resM: 0 }, p4: { desc: 'Scheduled Audits', respH: 48, respM: 0, resH: 336, resM: 0 } },
+    { id: 'cloud_req', label: 'CLOUD - SERVICE REQ', p1: { desc: 'Immediate Resource Scale', respH: 2, respM: 0, resH: 24, resM: 0 }, p2: { desc: 'New Environment Spin-up', respH: 4, respM: 0, resH: 48, resM: 0 }, p3: { desc: 'Access Provisioning', respH: 12, respM: 0, resH: 72, resM: 0 }, p4: { desc: 'General Architecture Qs', respH: 48, respM: 0, resH: 168, resM: 0 } }
+  ];
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
@@ -422,154 +417,90 @@ export const MasterDataConfig: React.FC = () => {
           </form>
         </div>
 
-        {/* SLA Target Panel */}
-        <div className="theme-card-panel rounded-2xl p-6 flex flex-col justify-between h-full transition-colors duration-300">
-          <div>
-            <h3 className="text-sm font-bold text-cyan-400 font-mono uppercase tracking-wider mb-4 pb-2 border-b border-white/5 flex items-center justify-between">
-              <span>SLA TARGET CONFIGURATION</span>
-              <span className="text-[10px] bg-cyan-500/15 text-cyan-300 px-2.5 py-0.5 rounded-full">
-                {slaTiers.length} DEFINED
-              </span>
+        {/* SLA Registry Builder Panel */}
+        <div className="theme-card-panel rounded-2xl p-6 flex flex-col h-full transition-colors duration-300">
+          <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-white/5 pb-4 mb-6">
+            <h3 className="text-sm font-bold theme-heading-text font-mono uppercase tracking-wider flex items-center gap-2">
+              <span>📑 SLA COMPLIANCE REGISTRY</span>
             </h3>
-
-            {/* List */}
-            <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1 mb-6">
-              {slaTiers.map((tier, index) => (
-                <div key={tier.id} className="p-3 theme-card-panel rounded-xl hover:border-white/10 transition-colors flex flex-col gap-3">
-                  <div className="flex justify-between items-start gap-4">
-                    <div>
-                      <div className="text-xs font-mono font-bold theme-heading-text uppercase">{tier.name}</div>
-                      <div className="text-[9px] theme-body-subtext font-mono mt-1 leading-relaxed">{tier.description}</div>
-                    </div>
-                    <button
-                      onClick={() => handleSlaToggle(tier.id)}
-                      className={`relative inline-flex items-center h-5 rounded-full w-9 transition-colors focus:outline-none shadow-[0_0_10px_rgba(0,0,0,0.5)] flex-shrink-0 ${tier.isActive !== false
-                        ? 'bg-emerald-500/20 border border-emerald-500/50'
-                        : 'bg-rose-500/10 border border-rose-500/30'
-                        }`}
-                    >
-                      <span
-                        className={`${tier.isActive !== false
-                          ? 'translate-x-4 bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]'
-                          : 'translate-x-1 bg-rose-500/50'
-                          } inline-block w-3.5 h-3.5 transform rounded-full transition-transform`}
-                      />
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 mt-1">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[8px] text-slate-500 uppercase tracking-widest font-mono">Response Target</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          value={tier.response}
-                          onChange={(e) => {
-                            const newTiers = [...slaTiers];
-                            newTiers[index].response = Number(e.target.value);
-                            setSlaTiers(newTiers);
-                          }}
-                          className="w-14 px-2 py-1 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded focus:ring-1 focus:ring-cyan-500 theme-heading-text outline-none font-mono text-xs text-center"
-                        />
-                        <span className="text-[10px] font-mono theme-body-subtext">{tier.responseUnit}</span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[8px] text-slate-500 uppercase tracking-widest font-mono">Resolution Target</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          value={tier.resolution}
-                          onChange={(e) => {
-                            const newTiers = [...slaTiers];
-                            newTiers[index].resolution = Number(e.target.value);
-                            setSlaTiers(newTiers);
-                          }}
-                          className="w-14 px-2 py-1 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded focus:ring-1 focus:ring-cyan-500 theme-heading-text outline-none font-mono text-xs text-center"
-                        />
-                        <span className="text-[10px] font-mono theme-body-subtext">{tier.resolutionUnit}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* New SLA Provisioning Sub-Form */}
-          <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
-            <h4 className="text-[10px] font-bold text-cyan-400 font-mono uppercase tracking-wider mb-2">
-              ➕ PROVISION NEW COMPLIANCE TIER
-            </h4>
-            <input
-              type="text"
-              value={newSlaName}
-              onChange={(e) => setNewSlaName(e.target.value)}
-              placeholder="SLA TIER NAME (E.G. P5 - PLANNING ROUTINE)"
-              className="w-full px-4 py-2.5 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 theme-heading-text outline-none font-mono text-xs uppercase"
-            />
-            <input
-              type="text"
-              value={newSlaDesc}
-              onChange={(e) => setNewSlaDesc(e.target.value)}
-              placeholder="Optional Scope Description..."
-              className="w-full px-4 py-2.5 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 theme-heading-text outline-none font-mono text-xs"
-            />
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <label className="text-[8px] text-slate-500 uppercase tracking-widest font-mono">Response Target</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={newSlaResponse}
-                    onChange={(e) => setNewSlaResponse(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full px-2 py-2 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg focus:ring-1 focus:ring-cyan-500 theme-heading-text outline-none font-mono text-xs"
-                  />
-                  <select 
-                    value={newSlaResponseUnit}
-                    onChange={(e) => setNewSlaResponseUnit(e.target.value)}
-                    className="bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-2 text-slate-700 dark:text-slate-300 font-mono text-[10px] outline-none"
-                  >
-                    <option value="Mins">Mins</option>
-                    <option value="Hours">Hours</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-[8px] text-slate-500 uppercase tracking-widest font-mono">Resolution Target</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={newSlaResolution}
-                    onChange={(e) => setNewSlaResolution(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full px-2 py-2 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg focus:ring-1 focus:ring-cyan-500 theme-heading-text outline-none font-mono text-xs"
-                  />
-                  <select 
-                    value={newSlaResolutionUnit}
-                    onChange={(e) => setNewSlaResolutionUnit(e.target.value)}
-                    className="bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-2 text-slate-700 dark:text-slate-300 font-mono text-[10px] outline-none"
-                  >
-                    <option value="Hours">Hours</option>
-                    <option value="Days">Days</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-auto pt-4 border-t border-white/5">
             <button
-              onClick={handleSaveSlaMatrix}
-              disabled={saveSlaMutation.isPending}
-              className="w-full py-2.5 bg-emerald-600/20 border border-emerald-500/50 hover:bg-emerald-500 text-emerald-300 hover:text-white font-bold rounded-xl transition-all shadow-[0_0_15px_rgba(52,211,153,0.15)] hover:shadow-[0_0_25px_rgba(52,211,153,0.4)] uppercase tracking-widest text-[10px] font-mono disabled:opacity-50"
+              onClick={() => setIsSlaModalOpen(true)}
+              className="px-4 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-400 text-indigo-400 dark:text-indigo-300 font-mono text-[10px] font-bold uppercase rounded-lg transition-all shadow-[0_0_10px_rgba(99,102,241,0.1)] hover:shadow-[0_0_15px_rgba(99,102,241,0.3)] tracking-wider"
             >
-              {saveSlaMutation.isPending ? 'SAVING...' : 'SAVE SLA MATRIX'}
+              ➕ ADD NEW SLA RULE
             </button>
+          </div>
+
+          <div className="space-y-3 overflow-y-auto pr-1">
+            {/* Hardcoded Combinations List */}
+            {SLA_COMBINATIONS.map((combo) => (
+              <div key={combo.id} className="theme-card-panel rounded-xl border border-slate-200/50 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 overflow-hidden transition-all duration-300">
+                <button
+                  onClick={() => setExpandedSlaRule(expandedSlaRule === combo.id ? null : combo.id)}
+                  className="w-full p-4 flex justify-between items-center group cursor-pointer hover:bg-slate-200/30 dark:hover:bg-white/5 transition-colors"
+                >
+                  <h4 className="text-sm font-bold theme-heading-text uppercase tracking-wider group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors flex items-center gap-3">
+                    <span className="text-indigo-500 text-lg">❖</span> {combo.label}
+                  </h4>
+                  <span className={`transform transition-transform text-slate-500 dark:text-slate-400 font-mono text-[10px] ${expandedSlaRule === combo.id ? 'rotate-180' : ''}`}>▼</span>
+                </button>
+                
+                {expandedSlaRule === combo.id && (
+                  <div className="p-4 border-t border-slate-200/50 dark:border-white/5 bg-slate-100/30 dark:bg-black/20 space-y-3">
+                     {[
+                       { p: 'P1', name: combo.p1.desc, respH: combo.p1.respH, respM: combo.p1.respM, resH: combo.p1.resH, resM: combo.p1.resM, color: 'text-rose-500', bg: 'bg-rose-500/10' },
+                       { p: 'P2', name: combo.p2.desc, respH: combo.p2.respH, respM: combo.p2.respM, resH: combo.p2.resH, resM: combo.p2.resM, color: 'text-orange-500', bg: 'bg-orange-500/10' },
+                       { p: 'P3', name: combo.p3.desc, respH: combo.p3.respH, respM: combo.p3.respM, resH: combo.p3.resH, resM: combo.p3.resM, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+                       { p: 'P4', name: combo.p4.desc, respH: combo.p4.respH, respM: combo.p4.respM, resH: combo.p4.resH, resM: combo.p4.resM, color: 'text-emerald-500', bg: 'bg-emerald-500/10' }
+                     ].map(tier => (
+                       <div key={tier.p} className="flex justify-between items-center bg-white/40 dark:bg-white/5 p-3 rounded-lg border border-slate-200/50 dark:border-white/5">
+                         <div className="flex items-center gap-3">
+                           <div className={`w-8 h-8 rounded-full ${tier.bg} flex items-center justify-center ${tier.color} font-bold font-mono text-xs`}>{tier.p}</div>
+                           <div>
+                             <h5 className="text-[11px] font-bold theme-heading-text uppercase tracking-wider">{tier.name}</h5>
+                           </div>
+                         </div>
+                         <div className="flex gap-8 items-center">
+                           <div className="text-right">
+                             <span className="block text-[8px] text-slate-500 uppercase tracking-widest font-mono mb-1">Response</span>
+                             <span className="text-xs font-bold text-slate-700 dark:text-slate-200 font-mono">{tier.respH > 0 ? `${tier.respH}H ` : ''}{tier.respM}M</span>
+                           </div>
+                           <div className="text-right">
+                             <span className="block text-[8px] text-slate-500 uppercase tracking-widest font-mono mb-1">Resolution</span>
+                             <span className="text-xs font-bold text-slate-700 dark:text-slate-200 font-mono">{tier.resH > 0 ? `${tier.resH}H ` : ''}{tier.resM > 0 || tier.resH === 0 ? `${tier.resM}M` : ''}</span>
+                           </div>
+                         </div>
+                       </div>
+                     ))}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <div className="pt-6 pb-2 flex justify-center">
+              <button 
+                onClick={() => navigate('/admin/master-data/sla-ledger')}
+                className="px-6 py-2.5 bg-slate-200/50 dark:bg-white/5 hover:bg-slate-300/50 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 font-mono text-[10px] font-bold uppercase rounded-xl transition-all tracking-widest flex items-center gap-2"
+              >
+                🔽 VIEW MORE RULES
+              </button>
+            </div>
+
           </div>
         </div>
       </div>
+
+
+      {isSlaModalOpen && (
+        <ConfigureSlaModal 
+          onClose={() => setIsSlaModalOpen(false)}
+          onSave={(payload) => {
+            setIsSlaModalOpen(false);
+            showToast('Matrix logic bundled. Pending API hook.', 'success');
+            console.log(payload);
+          }}
+        />
+      )}
     </div>
   );
 };

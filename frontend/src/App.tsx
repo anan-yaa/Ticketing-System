@@ -9,6 +9,7 @@ import { UnauthorizedPage } from './components/UnauthorizedPage';
 import MainLayout from './components/MainLayout';
 import Dashboard from './features/admin/Dashboard';
 import { AdminTicketsQueue } from './features/admin/AdminTicketsQueue';
+import { SlaMasterLedger } from './features/admin/SlaMasterLedger';
 import UserPortal from './pages/UserPortal';
 
 function App() {
@@ -35,6 +36,7 @@ function App() {
               
               <Route path="/settings" element={<ProfileSettings />} />
               <Route path="/settings/change-password" element={<ChangePassword />} />
+              <Route path="/admin/master-data/sla-ledger" element={<SlaMasterLedger />} />
             </Route>
           </Route>
           
