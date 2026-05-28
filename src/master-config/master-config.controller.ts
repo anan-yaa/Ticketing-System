@@ -19,6 +19,7 @@ export class MasterConfigController {
   @Post('categories')
   @Permissions('MASTER_DATA_UPDATE')
   async createCategory(@Body() dto: CreateConfigDto) {
+    console.log("📥 [BACKEND RECEIVED] Incoming request parameters:", dto);
     return this.configService.createCategory(dto);
   }
 
@@ -46,26 +47,44 @@ export class MasterConfigController {
     return this.configService.toggleType(id);
   }
 
-  // Queues
-  @Get('queues')
-  async getQueues(@Query('activeOnly') activeOnly?: string) {
+  // Assignment Groups
+  @Get('groups')
+  async getGroups(@Query('activeOnly') activeOnly?: string) {
     return this.configService.getQueues(activeOnly === 'true');
   }
 
-  @Post('queues')
+  @Post('groups')
   @Permissions('MASTER_DATA_UPDATE')
-  async createQueue(@Body() dto: CreateConfigDto) {
+  async createGroup(@Body() dto: CreateConfigDto) {
     return this.configService.createQueue(dto);
   }
 
-  @Patch('queues/:id/toggle')
+  @Patch('groups/:id/toggle')
   @Permissions('MASTER_DATA_UPDATE')
-  async toggleQueue(@Param('id') id: string) {
+  async toggleGroup(@Param('id') id: string) {
     return this.configService.toggleQueue(id);
   }
+
 
   @Get('services')
   async getServices(@Query('activeOnly') activeOnly?: string) {
     return this.configService.getServices(activeOnly === 'true');
+  }
+
+  @Post('services')
+  @Permissions('MASTER_DATA_UPDATE')
+  async createService(@Body() dto: CreateConfigDto) {
+    return this.configService.createService(dto);
+  }
+
+  @Patch('services/:id/toggle')
+  @Permissions('MASTER_DATA_UPDATE')
+  async toggleService(@Param('id') id: string) {
+    return this.configService.toggleService(id);
+  }
+
+  @Get('sla')
+  async getSlaRules() {
+    return this.configService.getSlaRules();
   }
 }

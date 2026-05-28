@@ -30,12 +30,25 @@ export const MasterDataConfig: React.FC = () => {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [expandedSlaRule, setExpandedSlaRule] = useState<string | null>(null);
 
-  const SLA_COMBINATIONS = [
-    { id: 'cloud_incident', label: 'CLOUD - INCIDENT', p1: { desc: 'Critical Outage / Server Down', respH: 0, respM: 15, resH: 2, resM: 0 }, p2: { desc: 'High Impact / Degradation', respH: 0, respM: 30, resH: 4, resM: 0 }, p3: { desc: 'Normal Priority Request', respH: 2, respM: 0, resH: 24, resM: 0 }, p4: { desc: 'Low Priority Inquiry', respH: 24, respM: 0, resH: 168, resM: 0 } },
-    { id: 'mi_incident', label: 'MI - INCIDENT', p1: { desc: 'Total Failure', respH: 0, respM: 10, resH: 1, resM: 30 }, p2: { desc: 'Subnet Unreachable', respH: 0, respM: 20, resH: 3, resM: 0 }, p3: { desc: 'Intermittent Latency', respH: 1, respM: 0, resH: 12, resM: 0 }, p4: { desc: 'Port Activation', respH: 12, respM: 0, resH: 72, resM: 0 } },
-    { id: 'rims_maintenance', label: 'RIMS - MAINTENANCE', p1: { desc: 'Emergency Patching', respH: 1, respM: 0, resH: 8, resM: 0 }, p2: { desc: 'Zero-day Mitigation', respH: 2, respM: 0, resH: 24, resM: 0 }, p3: { desc: 'Routine Backup Check', respH: 8, respM: 0, resH: 48, resM: 0 }, p4: { desc: 'Scheduled Audits', respH: 48, respM: 0, resH: 336, resM: 0 } },
-    { id: 'tss_req', label: 'TSS - SERVICE REQ', p1: { desc: 'Immediate Resource Scale', respH: 2, respM: 0, resH: 24, resM: 0 }, p2: { desc: 'New Environment Spin-up', respH: 4, respM: 0, resH: 48, resM: 0 }, p3: { desc: 'Access Provisioning', respH: 12, respM: 0, resH: 72, resM: 0 }, p4: { desc: 'General Architecture Qs', respH: 48, respM: 0, resH: 168, resM: 0 } }
-  ];
+  const { data: services = [], isLoading: loadingServices } = useQuery<ConfigItem[]>({
+    queryKey: ['master-groups'],
+    queryFn: async () => {
+      const res = await api.get('/master-config/groups');
+      return res.data;
+    },
+  });
+
+  const { data: slaRules = [], isLoading: loadingSla } = useQuery<any[]>({
+    queryKey: ['master-sla'],
+    queryFn: async () => {
+      const res = await api.get('/master-config/sla');
+      return res.data;
+    },
+  });
+
+  React.useEffect(() => {
+    console.log("👉 CURRENT DB GROUPS:", services);
+  }, [services]);
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
@@ -59,28 +72,54 @@ export const MasterDataConfig: React.FC = () => {
     },
   });
 
-  const [serviceGroups, setServiceGroups] = useState([
-    { id: '1', name: 'RIMS', isActive: true, description: 'Remote Infrastructure Management Services' },
-    { id: '2', name: 'MI', isActive: true, description: 'Management Infrastructure / Systems' },
-    { id: '3', name: 'DATA CENTER', isActive: true, description: 'DATA CENTER' },
-    { id: '4', name: 'DS', isActive: true, description: 'Data Services' },
-    { id: '5', name: 'TSS', isActive: true, description: 'Technical Support Services' },
-    { id: '6', name: 'DATABASE', isActive: true, description: 'DATABASE' },
-    { id: '7', name: 'CLOUD', isActive: true, description: 'CLOUD' }
-  ]);
   const [newGroup, setNewGroup] = useState('');
   const [newGroupDesc, setNewGroupDesc] = useState('');
 
-  const handleAddGroup = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newGroup) return;
-    setServiceGroups([...serviceGroups, { id: Date.now().toString(), name: newGroup, description: newGroupDesc, isActive: true }]);
-    setNewGroup('');
-    setNewGroupDesc('');
-  };
+  const createGroupMutation = useMutation({
+    mutationFn: async (data: { name: string; description?: string }) => {
+      return api.post('/master-config/groups', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['master-groups'] });
+      setNewGroup('');
+      setNewGroupDesc('');
+      setIsGroupModalOpen(false);
+      showToast('Assignment Group added successfully', 'success');
+    },
+    onError: (err: any) => {
+      const errMsg = err.response?.data?.message || 'Failed to add Assignment Group';
+      showToast(errMsg, 'error');
+    },
+  });
 
-  const toggleGroupStatus = (id: string) => {
-    setServiceGroups(serviceGroups.map(g => g.id === id ? { ...g, isActive: !g.isActive } : g));
+  const toggleGroupMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return api.patch(`/master-config/groups/${id}/toggle`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['master-groups'] });
+      showToast('Assignment Group status updated successfully', 'success');
+    },
+    onError: (err: any) => {
+      const errMsg = err.response?.data?.message || 'Failed to toggle status';
+      showToast(errMsg, 'error');
+    },
+  });
+
+  const handleAddGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newGroup.trim()) return;
+    const name = newGroup.trim().toUpperCase();
+    const description = newGroupDesc.trim() || undefined;
+
+    try {
+      console.log("📡 [NETWORK] Launching direct API handshake...");
+      const result = await createGroupMutation.mutateAsync({ name, description });
+      console.log("⚡ [NETWORK RESPONSE] Raw string returned from server:", result);
+    } catch (netErr: any) {
+      console.error("🚨 [NETWORK CRASH] The browser failed to broadcast or receive:", netErr.response?.data || netErr.message);
+      alert(`API Write Blocked: ${netErr.message}`);
+    }
   };
 
   // Mutations for Create
@@ -92,6 +131,7 @@ export const MasterDataConfig: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['master-types'] });
       setNewType('');
       setNewTypeDesc('');
+      setIsTypeModalOpen(false);
       showToast('Ticket Type added successfully', 'success');
     },
     onError: (err: any) => {
@@ -104,13 +144,16 @@ export const MasterDataConfig: React.FC = () => {
     mutationFn: async (data: { name: string; description?: string }) => {
       return api.post('/master-config/categories', data);
     },
-    onSuccess: () => {
+    onSuccess: (response: any) => {
+      console.log("✅ [FRONTEND SUCCESS] Server responded with:", response.data);
       queryClient.invalidateQueries({ queryKey: ['master-categories'] });
       setNewCategory('');
       setNewCategoryDesc('');
+      setIsCategoryModalOpen(false);
       showToast('Category added successfully', 'success');
     },
     onError: (err: any) => {
+      console.error("❌ [FRONTEND NETWORK ERROR] API communication failed:", err);
       const errMsg = err.response?.data?.message || 'Failed to add Category';
       showToast(errMsg, 'error');
     },
@@ -147,37 +190,6 @@ export const MasterDataConfig: React.FC = () => {
     },
   });
 
-  const saveSlaMutation = useMutation({
-    mutationFn: async (data: any) => {
-      return api.put('/master-config/sla', data);
-    },
-    onSuccess: () => {
-      showToast('SLA Matrix saved successfully', 'success');
-      setNewSlaName('');
-      setNewSlaDesc('');
-      setNewSlaResponse('');
-      setNewSlaResolution('');
-    },
-    onError: (err: any) => {
-      const errMsg = err.response?.data?.message || 'Failed to save SLA Matrix';
-      showToast(errMsg, 'error');
-    },
-  });
-
-  const handleSaveSlaMatrix = () => {
-    const payload = {
-      tiers: slaTiers,
-      newTier: newSlaName ? {
-        name: newSlaName,
-        description: newSlaDesc,
-        response: newSlaResponse,
-        responseUnit: newSlaResponseUnit,
-        resolution: newSlaResolution,
-        resolutionUnit: newSlaResolutionUnit
-      } : null
-    };
-    saveSlaMutation.mutate(payload);
-  };
 
   const handleAddType = (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,10 +197,20 @@ export const MasterDataConfig: React.FC = () => {
     createTypeMutation.mutate({ name: newType.trim(), description: newTypeDesc.trim() || undefined });
   };
 
-  const handleAddCategory = (e: React.FormEvent) => {
+  const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategory.trim()) return;
-    createCategoryMutation.mutate({ name: newCategory.trim(), description: newCategoryDesc.trim() || undefined });
+    const name = newCategory.trim().toUpperCase();
+    const description = newCategoryDesc.trim() || undefined;
+    console.log("🚀 [FRONTEND SUBMIT] Packaging payload data:", { name, description });
+    
+    try {
+      const result = await createCategoryMutation.mutateAsync({ name, description });
+      console.log("⚡ [NETWORK RESPONSE] Raw string returned from server:", result);
+    } catch (netErr: any) {
+      console.error("🚨 [NETWORK CRASH] The browser failed to broadcast or receive:", netErr.response?.data || netErr.message);
+      alert(`API Write Blocked: ${netErr.message}`);
+    }
   };
 
 
@@ -330,7 +352,7 @@ export const MasterDataConfig: React.FC = () => {
               <h3 className="text-sm font-bold text-cyan-400 font-mono uppercase tracking-wider flex items-center gap-2">
                 <span>MASTER SERVICE GROUPS</span>
                 <span className="text-[10px] bg-cyan-500/15 text-cyan-300 px-2.5 py-0.5 rounded-full">
-                  {serviceGroups.length} Defined
+                  {services.length} Defined
                 </span>
               </h3>
               <button
@@ -343,10 +365,12 @@ export const MasterDataConfig: React.FC = () => {
 
             {/* List */}
             <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1 mb-6">
-              {serviceGroups.length === 0 ? (
+              {loadingServices ? (
+                <div className="text-center py-6 text-slate-500 font-mono text-xs animate-pulse">Loading..</div>
+              ) : services.length === 0 ? (
                 <div className="text-center py-6 text-slate-500 font-mono text-xs">No groups defined.</div>
               ) : (
-                serviceGroups.map((group) => (
+                services.map((group) => (
                   <div key={group.id} className="w-full flex items-center justify-between p-4 mb-3 rounded-xl border border-slate-200/40 dark:border-white/5 bg-slate-50/40 dark:bg-slate-950/30 hover:bg-slate-50/80 dark:hover:bg-slate-950/50 transition-all duration-200">
                     <div className="flex items-center gap-4">
                       <div className="text-indigo-500 text-xs">◆</div> 
@@ -361,7 +385,7 @@ export const MasterDataConfig: React.FC = () => {
                     </div>
                     <div>
                       <button
-                        onClick={() => toggleGroupStatus(group.id)}
+                        onClick={() => toggleGroupMutation.mutate(group.id)}
                         className={`relative inline-flex items-center h-5 rounded-full w-9 transition-colors focus:outline-none shadow-[0_0_10px_rgba(0,0,0,0.5)] flex-shrink-0 ${group.isActive !== false
                           ? 'bg-emerald-500/20 border border-emerald-500/50'
                           : 'bg-rose-500/10 border border-rose-500/30'
@@ -397,32 +421,32 @@ export const MasterDataConfig: React.FC = () => {
           </div>
 
           <div className="space-y-3 overflow-y-auto pr-1">
-            {/* Hardcoded Combinations List */}
-            {SLA_COMBINATIONS.map((combo) => (
-              <div key={combo.id} className="theme-card-panel rounded-xl border border-slate-200/50 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 overflow-hidden transition-all duration-300">
+            {/* Dynamically Fetched SLA Rules List */}
+            {loadingSla ? (
+              <div className="text-center py-6 text-slate-500 font-mono text-xs animate-pulse">Loading SLA Rules...</div>
+            ) : slaRules.length === 0 ? (
+              <div className="text-center py-6 text-slate-500 font-mono text-xs">No SLA Rules defined.</div>
+            ) : slaRules.map((rule) => (
+              <div key={rule.id} className="theme-card-panel rounded-xl border border-slate-200/50 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 overflow-hidden transition-all duration-300">
                 <button
-                  onClick={() => setExpandedSlaRule(expandedSlaRule === combo.id ? null : combo.id)}
+                  onClick={() => setExpandedSlaRule(expandedSlaRule === rule.id ? null : rule.id)}
                   className="w-full p-4 flex justify-between items-center group cursor-pointer hover:bg-slate-200/30 dark:hover:bg-white/5 transition-colors"
                 >
                   <h4 className="text-sm font-bold theme-heading-text uppercase tracking-wider group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors flex items-center gap-3">
-                    <span className="text-indigo-500 text-lg">❖</span> {combo.label}
+                    <span className="text-indigo-500 text-lg">❖</span> {rule.serviceGroup} - {rule.ticketType}
                   </h4>
-                  <span className={`transform transition-transform text-slate-500 dark:text-slate-400 font-mono text-[10px] ${expandedSlaRule === combo.id ? 'rotate-180' : ''}`}>▼</span>
+                  <span className={`transform transition-transform text-slate-500 dark:text-slate-400 font-mono text-[10px] ${expandedSlaRule === rule.id ? 'rotate-180' : ''}`}>▼</span>
                 </button>
 
-                {expandedSlaRule === combo.id && (
+                {expandedSlaRule === rule.id && (
                   <div className="p-4 border-t border-slate-200/50 dark:border-white/5 bg-slate-100/30 dark:bg-black/20 space-y-3">
-                    {[
-                      { p: 'P1', name: combo.p1.desc, respH: combo.p1.respH, respM: combo.p1.respM, resH: combo.p1.resH, resM: combo.p1.resM, color: 'text-rose-500', bg: 'bg-rose-500/10' },
-                      { p: 'P2', name: combo.p2.desc, respH: combo.p2.respH, respM: combo.p2.respM, resH: combo.p2.resH, resM: combo.p2.resM, color: 'text-orange-500', bg: 'bg-orange-500/10' },
-                      { p: 'P3', name: combo.p3.desc, respH: combo.p3.respH, respM: combo.p3.respM, resH: combo.p3.resH, resM: combo.p3.resM, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-                      { p: 'P4', name: combo.p4.desc, respH: combo.p4.respH, respM: combo.p4.respM, resH: combo.p4.resH, resM: combo.p4.resM, color: 'text-emerald-500', bg: 'bg-emerald-500/10' }
-                    ].map(tier => (
-                      <div key={tier.p} className="flex justify-between items-center bg-white/40 dark:bg-white/5 p-3 rounded-lg border border-slate-200/50 dark:border-white/5">
+                    {(rule.tiers || []).sort((a: any, b: any) => a.level.localeCompare(b.level)).map((tier: any) => (
+                      <div key={tier.id} className="flex justify-between items-center bg-white/40 dark:bg-white/5 p-3 rounded-lg border border-slate-200/50 dark:border-white/5">
                         <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full ${tier.bg} flex items-center justify-center ${tier.color} font-bold font-mono text-xs`}>{tier.p}</div>
+                          <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 font-bold font-mono text-xs">{tier.level}</div>
                           <div>
                             <h5 className="text-[11px] font-bold theme-heading-text uppercase tracking-wider">{tier.name}</h5>
+                            {tier.description && <p className="text-[9px] text-slate-500">{tier.description}</p>}
                           </div>
                         </div>
                         <div className="flex gap-8 items-center">
@@ -477,7 +501,7 @@ export const MasterDataConfig: React.FC = () => {
               </div>
               <button onClick={() => setIsGroupModalOpen(false)} className="text-slate-400 hover:text-white transition-colors">✕</button>
             </div>
-            <form onSubmit={(e) => { handleAddGroup(e); setIsGroupModalOpen(false); }} className="p-6 space-y-4">
+            <form onSubmit={handleAddGroup} className="p-6 space-y-4">
               <div>
                 <label className="block text-[10px] font-mono uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 font-bold">Group Name</label>
                 <input required value={newGroup} onChange={e => setNewGroup(e.target.value)} className="w-full px-4 py-3 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-indigo-500 theme-heading-text outline-none font-mono text-xs uppercase" placeholder="e.g. INFRASTRUCTURE" />
@@ -505,7 +529,7 @@ export const MasterDataConfig: React.FC = () => {
               </div>
               <button onClick={() => setIsTypeModalOpen(false)} className="text-slate-400 hover:text-white transition-colors">✕</button>
             </div>
-            <form onSubmit={(e) => { handleAddType(e); setIsTypeModalOpen(false); }} className="p-6 space-y-4">
+            <form onSubmit={handleAddType} className="p-6 space-y-4">
               <div>
                 <label className="block text-[10px] font-mono uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 font-bold">Type Name</label>
                 <input required value={newType} onChange={e => setNewType(e.target.value)} className="w-full px-4 py-3 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-indigo-500 theme-heading-text outline-none font-mono text-xs uppercase" placeholder="e.g. INCIDENT" />
@@ -533,7 +557,7 @@ export const MasterDataConfig: React.FC = () => {
               </div>
               <button onClick={() => setIsCategoryModalOpen(false)} className="text-slate-400 hover:text-white transition-colors">✕</button>
             </div>
-            <form onSubmit={(e) => { handleAddCategory(e); setIsCategoryModalOpen(false); }} className="p-6 space-y-4">
+            <form onSubmit={handleAddCategory} className="p-6 space-y-4">
               <div>
                 <label className="block text-[10px] font-mono uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 font-bold">Category Name</label>
                 <input required value={newCategory} onChange={e => setNewCategory(e.target.value)} className="w-full px-4 py-3 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-indigo-500 theme-heading-text outline-none font-mono text-xs uppercase" placeholder="e.g. ACCESS POLICY" />

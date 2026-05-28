@@ -21,12 +21,18 @@ export class MasterConfigService {
     if (existing) {
       throw new ConflictException(`Category with name "${dto.name}" already exists`);
     }
-    return this.prisma.masterCategory.create({
-      data: {
-        name: dto.name,
-        description: dto.description,
-      },
-    });
+    console.log("⚙️ [PRISMA CALL] Sending mutation payload to MasterCategory table...");
+    try {
+      return await this.prisma.masterCategory.create({
+        data: {
+          name: dto.name,
+          description: dto.description,
+        },
+      });
+    } catch (dbError) {
+      console.error("🚨 [PRISMA CRASH] Database constraint blocked insertion:", dbError);
+      throw dbError;
+    }
   }
 
   async toggleCategory(id: string) {
@@ -119,6 +125,40 @@ export class MasterConfigService {
     return this.prisma.serviceContract.findMany({
       where: activeOnly ? { isActive: true } : undefined,
       orderBy: { name: 'asc' },
+    });
+  }
+
+  async createService(dto: CreateConfigDto) {
+    const existing = await this.prisma.serviceContract.findUnique({
+      where: { name: dto.name },
+    });
+    if (existing) {
+      throw new ConflictException(`Service Group with name "${dto.name}" already exists`);
+    }
+    return this.prisma.serviceContract.create({
+      data: {
+        name: dto.name,
+      },
+    });
+  }
+
+  async toggleService(id: string) {
+    const record = await this.prisma.serviceContract.findUnique({
+      where: { id },
+    });
+    if (!record) {
+      throw new NotFoundException(`Service Group with ID "${id}" not found`);
+    }
+    return this.prisma.serviceContract.update({
+      where: { id },
+      data: { isActive: !record.isActive },
+    });
+  }
+
+  async getSlaRules() {
+    return this.prisma.slaRule.findMany({
+      include: { tiers: true },
+      orderBy: [{ serviceGroup: 'asc' }, { ticketType: 'asc' }],
     });
   }
 }

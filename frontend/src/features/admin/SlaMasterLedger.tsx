@@ -53,7 +53,7 @@ export const SlaMasterLedger: React.FC = () => {
     // Step 1: Compare Service Group Names (e.g., CLOUD vs NETWORK)
     const groupCompare = a.serviceGroup.localeCompare(b.serviceGroup);
     if (groupCompare !== 0) return groupCompare;
-    
+
     // Step 2: If the group matches, sort by Ticket Type (e.g., INCIDENT vs SERVICE REQUEST)
     return a.ticketType.localeCompare(b.ticketType);
   });
@@ -68,7 +68,7 @@ export const SlaMasterLedger: React.FC = () => {
             <button
               onClick={() => {
                 setIsSlaModalOpen(false); // Close any floating rules config overlays safely
-                navigate("/settings"); // Move directly back to the valid configuration route
+                navigate("/admin/master-data"); // Move directly back to the dashboard grid
               }}
               className="group p-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 shadow-sm flex items-center justify-center"
               title="Return to Master Data Configuration"

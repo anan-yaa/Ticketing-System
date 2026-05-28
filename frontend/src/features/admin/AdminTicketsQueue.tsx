@@ -359,7 +359,7 @@ export const AdminTicketsQueue: React.FC = () => {
 
   // Filter tickets for "My Queue" (assigned to current user and not closed)
   const myQueueTickets = groupFilteredTickets.filter(
-    (t) => user?.systemRole === 'SUPER_ADMIN' ? false : ((t.ticketOwnerId === user?.id || (t as any).assignedToId === user?.id) && t.status !== 'CLOSED')
+    (t) => (user as any)?.systemRole === 'SUPER_ADMIN' ? false : ((t.ticketOwnerId === user?.id || (t as any).assignedToId === user?.id) && t.status !== 'CLOSED')
   );
 
   // Filter tickets for "Closed Archive" (status is exactly CLOSED)
