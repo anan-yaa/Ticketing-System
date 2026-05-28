@@ -244,9 +244,12 @@ async function main() {
 
   const servicesData = [
     { name: 'RIMS', description: 'Remote Infrastructure Management Services' },
-    { name: 'MSS', description: 'Managed Security Services' },
-    { name: 'WPE', description: 'Workplace Endpoints' },
-    { name: 'MAINTENANCE', description: 'MAINTENANCE - SYSTEM INFRASTRUCTURE & DISPATCH' },
+    { name: 'MI', description: 'Message Infrastructure' },
+    { name: 'DATA CENTER', description: 'DATA CENTER' },
+    { name: 'DS', description: 'Data Services' },
+    { name: 'TSS', description: 'Technical Support Services' },
+    { name: 'DATABASE', description: 'DATABASE' },
+    { name: 'CLOUD', description: 'CLOUD' }
   ];
 
   const servicesMap: { [key: string]: string } = {};

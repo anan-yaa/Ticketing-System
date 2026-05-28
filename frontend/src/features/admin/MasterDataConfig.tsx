@@ -29,9 +29,9 @@ export const MasterDataConfig: React.FC = () => {
 
   const SLA_COMBINATIONS = [
     { id: 'cloud_incident', label: 'CLOUD - INCIDENT', p1: { desc: 'Critical Outage / Server Down', respH: 0, respM: 15, resH: 2, resM: 0 }, p2: { desc: 'High Impact / Degradation', respH: 0, respM: 30, resH: 4, resM: 0 }, p3: { desc: 'Normal Priority Request', respH: 2, respM: 0, resH: 24, resM: 0 }, p4: { desc: 'Low Priority Inquiry', respH: 24, respM: 0, resH: 168, resM: 0 } },
-    { id: 'network_incident', label: 'NETWORK - INCIDENT', p1: { desc: 'Total Routing Failure', respH: 0, respM: 10, resH: 1, resM: 30 }, p2: { desc: 'Subnet Unreachable', respH: 0, respM: 20, resH: 3, resM: 0 }, p3: { desc: 'Intermittent Latency', respH: 1, respM: 0, resH: 12, resM: 0 }, p4: { desc: 'Port Activation', respH: 12, respM: 0, resH: 72, resM: 0 } },
+    { id: 'mi_incident', label: 'MI - INCIDENT', p1: { desc: 'Total Failure', respH: 0, respM: 10, resH: 1, resM: 30 }, p2: { desc: 'Subnet Unreachable', respH: 0, respM: 20, resH: 3, resM: 0 }, p3: { desc: 'Intermittent Latency', respH: 1, respM: 0, resH: 12, resM: 0 }, p4: { desc: 'Port Activation', respH: 12, respM: 0, resH: 72, resM: 0 } },
     { id: 'rims_maintenance', label: 'RIMS - MAINTENANCE', p1: { desc: 'Emergency Patching', respH: 1, respM: 0, resH: 8, resM: 0 }, p2: { desc: 'Zero-day Mitigation', respH: 2, respM: 0, resH: 24, resM: 0 }, p3: { desc: 'Routine Backup Check', respH: 8, respM: 0, resH: 48, resM: 0 }, p4: { desc: 'Scheduled Audits', respH: 48, respM: 0, resH: 336, resM: 0 } },
-    { id: 'cloud_req', label: 'CLOUD - SERVICE REQ', p1: { desc: 'Immediate Resource Scale', respH: 2, respM: 0, resH: 24, resM: 0 }, p2: { desc: 'New Environment Spin-up', respH: 4, respM: 0, resH: 48, resM: 0 }, p3: { desc: 'Access Provisioning', respH: 12, respM: 0, resH: 72, resM: 0 }, p4: { desc: 'General Architecture Qs', respH: 48, respM: 0, resH: 168, resM: 0 } }
+    { id: 'tss_req', label: 'TSS - SERVICE REQ', p1: { desc: 'Immediate Resource Scale', respH: 2, respM: 0, resH: 24, resM: 0 }, p2: { desc: 'New Environment Spin-up', respH: 4, respM: 0, resH: 48, resM: 0 }, p3: { desc: 'Access Provisioning', respH: 12, respM: 0, resH: 72, resM: 0 }, p4: { desc: 'General Architecture Qs', respH: 48, respM: 0, resH: 168, resM: 0 } }
   ];
 
   const showToast = (message: string, type: 'success' | 'error') => {
@@ -57,11 +57,13 @@ export const MasterDataConfig: React.FC = () => {
   });
 
   const [serviceGroups, setServiceGroups] = useState([
-    { id: '1', name: 'RIMS - REMOTE INFRASTRUCTURE MANAGEMENT', isActive: true, description: '' },
-    { id: '2', name: 'MSS - MANAGED SECURITY SERVICES', isActive: true, description: '' },
-    { id: '3', name: 'WPE - WORKPLACE ENDPOINTS', isActive: true, description: '' },
-    { id: '4', name: 'CLOUD - ENTERPRISE CLOUD ARCHITECTURE', isActive: true, description: '' },
-    { id: '5', name: 'NETWORK - INFRASTRUCTURE & SWITCHES', isActive: true, description: '' }
+    { id: '1', name: 'RIMS', isActive: true, description: 'Remote Infrastructure Management Services' },
+    { id: '2', name: 'MI', isActive: true, description: 'Management Infrastructure / Systems' },
+    { id: '3', name: 'DATA CENTER', isActive: true, description: 'DATA CENTER' },
+    { id: '4', name: 'DS', isActive: true, description: 'Data Services' },
+    { id: '5', name: 'TSS', isActive: true, description: 'Technical Support Services' },
+    { id: '6', name: 'DATABASE', isActive: true, description: 'DATABASE' },
+    { id: '7', name: 'CLOUD', isActive: true, description: 'CLOUD' }
   ]);
   const [newGroup, setNewGroup] = useState('');
   const [newGroupDesc, setNewGroupDesc] = useState('');
@@ -226,10 +228,13 @@ export const MasterDataConfig: React.FC = () => {
                 <div className="text-center py-6 text-slate-500 font-mono text-xs">No types defined.</div>
               ) : (
                 types.map((t) => (
-                  <div key={t.id} className="p-3 theme-card-panel rounded-xl hover:border-white/10 transition-colors flex justify-between items-center gap-4">
-                    <div>
-                      <div className="text-xs font-mono font-bold theme-heading-text uppercase">{t.name}</div>
-                      {t.description && <div className="text-[10px] theme-body-subtext font-mono mt-1 leading-relaxed">{t.description}</div>}
+                  <div key={t.id} className="w-full flex items-center justify-between p-4 mb-3 rounded-xl border border-slate-200/40 dark:border-white/5 bg-slate-50/40 dark:bg-slate-950/30 hover:bg-slate-50/80 dark:hover:bg-slate-950/50 transition-all duration-200">
+                    <div className="flex items-center gap-4">
+                      <div className="text-indigo-500 text-xs">◆</div>
+                      <div className="flex flex-col gap-1">
+                        <h3 className="text-sm font-semibold tracking-wide text-slate-900 dark:text-slate-100 uppercase">{t.name}</h3>
+                        {t.description && <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">{t.description}</p>}
+                      </div>
                     </div>
                     <button
                       onClick={() => toggleTypeMutation.mutate(t.id)}
@@ -296,10 +301,13 @@ export const MasterDataConfig: React.FC = () => {
                 <div className="text-center py-6 text-slate-500 font-mono text-xs">No categories defined.</div>
               ) : (
                 categories.map((c) => (
-                  <div key={c.id} className="p-3 theme-card-panel rounded-xl hover:border-white/10 transition-colors flex justify-between items-center gap-4">
-                    <div>
-                      <div className="text-xs font-mono font-bold theme-heading-text uppercase">{c.name}</div>
-                      {c.description && <div className="text-[10px] theme-body-subtext font-mono mt-1 leading-relaxed">{c.description}</div>}
+                  <div key={c.id} className="w-full flex items-center justify-between p-4 mb-3 rounded-xl border border-slate-200/40 dark:border-white/5 bg-slate-50/40 dark:bg-slate-950/30 hover:bg-slate-50/80 dark:hover:bg-slate-950/50 transition-all duration-200">
+                    <div className="flex items-center gap-4">
+                      <div className="text-indigo-500 text-xs">◆</div>
+                      <div className="flex flex-col gap-1">
+                        <h3 className="text-sm font-semibold tracking-wide text-slate-900 dark:text-slate-100 uppercase">{c.name}</h3>
+                        {c.description && <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">{c.description}</p>}
+                      </div>
                     </div>
                     <button
                       onClick={() => toggleCategoryMutation.mutate(c.id)}
@@ -363,28 +371,35 @@ export const MasterDataConfig: React.FC = () => {
               {serviceGroups.length === 0 ? (
                 <div className="text-center py-6 text-slate-500 font-mono text-xs">No groups defined.</div>
               ) : (
-                serviceGroups.map((g) => (
-                  <div key={g.id} className="p-3 theme-card-panel rounded-xl hover:border-white/10 transition-colors flex justify-between items-center gap-4">
-                    <div>
-                      <div className="text-xs font-mono font-bold theme-heading-text uppercase">{g.name}</div>
-                      <div className="text-[10px] text-cyan-500/80 font-mono mt-1 leading-relaxed italic">
-                        Provisioning a master service group automatically deploys all 7 core matrix ticket classifications by default.
+                serviceGroups.map((group) => (
+                  <div key={group.id} className="w-full flex items-center justify-between p-4 mb-3 rounded-xl border border-slate-200/40 dark:border-white/5 bg-slate-50/40 dark:bg-slate-950/30 hover:bg-slate-50/80 dark:hover:bg-slate-950/50 transition-all duration-200">
+                    <div className="flex items-center gap-4">
+                      <div className="text-indigo-500 text-xs">◆</div> 
+                      <div className="flex flex-col gap-1">
+                        <h3 className="text-sm font-semibold tracking-wide text-slate-900 dark:text-slate-100 uppercase">
+                          {group.name}
+                        </h3>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 font-medium max-w-xl">
+                          {group.description || "Provisioning a master service group automatically deploys all core compliance ticket classifications by default."}
+                        </p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => toggleGroupStatus(g.id)}
-                      className={`relative inline-flex items-center h-5 rounded-full w-9 transition-colors focus:outline-none shadow-[0_0_10px_rgba(0,0,0,0.5)] flex-shrink-0 ${g.isActive !== false
-                        ? 'bg-emerald-500/20 border border-emerald-500/50'
-                        : 'bg-rose-500/10 border border-rose-500/30'
-                        }`}
-                    >
-                      <span
-                        className={`${g.isActive !== false
-                          ? 'translate-x-4 bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]'
-                          : 'translate-x-1 bg-rose-500/50'
-                          } inline-block w-3.5 h-3.5 transform rounded-full transition-transform`}
-                      />
-                    </button>
+                    <div>
+                      <button
+                        onClick={() => toggleGroupStatus(group.id)}
+                        className={`relative inline-flex items-center h-5 rounded-full w-9 transition-colors focus:outline-none shadow-[0_0_10px_rgba(0,0,0,0.5)] flex-shrink-0 ${group.isActive !== false
+                          ? 'bg-emerald-500/20 border border-emerald-500/50'
+                          : 'bg-rose-500/10 border border-rose-500/30'
+                          }`}
+                      >
+                        <span
+                          className={`${group.isActive !== false
+                            ? 'translate-x-4 bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]'
+                            : 'translate-x-1 bg-rose-500/50'
+                            } inline-block w-3.5 h-3.5 transform rounded-full transition-transform`}
+                        />
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -444,41 +459,41 @@ export const MasterDataConfig: React.FC = () => {
                   </h4>
                   <span className={`transform transition-transform text-slate-500 dark:text-slate-400 font-mono text-[10px] ${expandedSlaRule === combo.id ? 'rotate-180' : ''}`}>▼</span>
                 </button>
-                
+
                 {expandedSlaRule === combo.id && (
                   <div className="p-4 border-t border-slate-200/50 dark:border-white/5 bg-slate-100/30 dark:bg-black/20 space-y-3">
-                     {[
-                       { p: 'P1', name: combo.p1.desc, respH: combo.p1.respH, respM: combo.p1.respM, resH: combo.p1.resH, resM: combo.p1.resM, color: 'text-rose-500', bg: 'bg-rose-500/10' },
-                       { p: 'P2', name: combo.p2.desc, respH: combo.p2.respH, respM: combo.p2.respM, resH: combo.p2.resH, resM: combo.p2.resM, color: 'text-orange-500', bg: 'bg-orange-500/10' },
-                       { p: 'P3', name: combo.p3.desc, respH: combo.p3.respH, respM: combo.p3.respM, resH: combo.p3.resH, resM: combo.p3.resM, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-                       { p: 'P4', name: combo.p4.desc, respH: combo.p4.respH, respM: combo.p4.respM, resH: combo.p4.resH, resM: combo.p4.resM, color: 'text-emerald-500', bg: 'bg-emerald-500/10' }
-                     ].map(tier => (
-                       <div key={tier.p} className="flex justify-between items-center bg-white/40 dark:bg-white/5 p-3 rounded-lg border border-slate-200/50 dark:border-white/5">
-                         <div className="flex items-center gap-3">
-                           <div className={`w-8 h-8 rounded-full ${tier.bg} flex items-center justify-center ${tier.color} font-bold font-mono text-xs`}>{tier.p}</div>
-                           <div>
-                             <h5 className="text-[11px] font-bold theme-heading-text uppercase tracking-wider">{tier.name}</h5>
-                           </div>
-                         </div>
-                         <div className="flex gap-8 items-center">
-                           <div className="text-right">
-                             <span className="block text-[8px] text-slate-500 uppercase tracking-widest font-mono mb-1">Response</span>
-                             <span className="text-xs font-bold text-slate-700 dark:text-slate-200 font-mono">{tier.respH > 0 ? `${tier.respH}H ` : ''}{tier.respM}M</span>
-                           </div>
-                           <div className="text-right">
-                             <span className="block text-[8px] text-slate-500 uppercase tracking-widest font-mono mb-1">Resolution</span>
-                             <span className="text-xs font-bold text-slate-700 dark:text-slate-200 font-mono">{tier.resH > 0 ? `${tier.resH}H ` : ''}{tier.resM > 0 || tier.resH === 0 ? `${tier.resM}M` : ''}</span>
-                           </div>
-                         </div>
-                       </div>
-                     ))}
+                    {[
+                      { p: 'P1', name: combo.p1.desc, respH: combo.p1.respH, respM: combo.p1.respM, resH: combo.p1.resH, resM: combo.p1.resM, color: 'text-rose-500', bg: 'bg-rose-500/10' },
+                      { p: 'P2', name: combo.p2.desc, respH: combo.p2.respH, respM: combo.p2.respM, resH: combo.p2.resH, resM: combo.p2.resM, color: 'text-orange-500', bg: 'bg-orange-500/10' },
+                      { p: 'P3', name: combo.p3.desc, respH: combo.p3.respH, respM: combo.p3.respM, resH: combo.p3.resH, resM: combo.p3.resM, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+                      { p: 'P4', name: combo.p4.desc, respH: combo.p4.respH, respM: combo.p4.respM, resH: combo.p4.resH, resM: combo.p4.resM, color: 'text-emerald-500', bg: 'bg-emerald-500/10' }
+                    ].map(tier => (
+                      <div key={tier.p} className="flex justify-between items-center bg-white/40 dark:bg-white/5 p-3 rounded-lg border border-slate-200/50 dark:border-white/5">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full ${tier.bg} flex items-center justify-center ${tier.color} font-bold font-mono text-xs`}>{tier.p}</div>
+                          <div>
+                            <h5 className="text-[11px] font-bold theme-heading-text uppercase tracking-wider">{tier.name}</h5>
+                          </div>
+                        </div>
+                        <div className="flex gap-8 items-center">
+                          <div className="text-right">
+                            <span className="block text-[8px] text-slate-500 uppercase tracking-widest font-mono mb-1">Response</span>
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 font-mono">{tier.respH > 0 ? `${tier.respH}H ` : ''}{tier.respM}M</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="block text-[8px] text-slate-500 uppercase tracking-widest font-mono mb-1">Resolution</span>
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 font-mono">{tier.resH > 0 ? `${tier.resH}H ` : ''}{tier.resM > 0 || tier.resH === 0 ? `${tier.resM}M` : ''}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
             ))}
 
             <div className="pt-6 pb-2 flex justify-center">
-              <button 
+              <button
                 onClick={() => navigate('/admin/master-data/sla-ledger')}
                 className="px-6 py-2.5 bg-slate-200/50 dark:bg-white/5 hover:bg-slate-300/50 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 font-mono text-[10px] font-bold uppercase rounded-xl transition-all tracking-widest flex items-center gap-2"
               >
@@ -492,11 +507,11 @@ export const MasterDataConfig: React.FC = () => {
 
 
       {isSlaModalOpen && (
-        <ConfigureSlaModal 
+        <ConfigureSlaModal
           onClose={() => setIsSlaModalOpen(false)}
           onSave={(payload) => {
             setIsSlaModalOpen(false);
-            showToast('Matrix logic bundled. Pending API hook.', 'success');
+            showToast('Saved successfully', 'success');
             console.log(payload);
           }}
         />

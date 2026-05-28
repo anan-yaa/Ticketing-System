@@ -44,9 +44,9 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative theme-card-panel w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border border-slate-300 dark:border-white/10 flex flex-col bg-white dark:bg-slate-900">
+      <div className="relative theme-card-panel w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-300 dark:border-white/10 flex flex-col bg-white dark:bg-slate-900">
         
-        <div className="p-6 border-b border-slate-200 dark:border-white/5 sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur z-10 flex justify-between items-center">
+        <div className="p-6 border-b border-slate-200 dark:border-white/5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-t-2xl z-10 flex justify-between items-center">
           <div>
             <h3 className="text-xl font-bold theme-heading-text uppercase tracking-widest">CONFIGURE SLA COMPLIANCE RULE</h3>
             <p className="text-xs theme-body-subtext font-mono mt-1">Map a Service Group and Ticket Type to custom Priority Tiers</p>
@@ -54,8 +54,8 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
           <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">✕</button>
         </div>
 
-        <div className="p-6 space-y-8 flex-1">
-          <div className="grid grid-cols-2 gap-6 bg-slate-50 dark:bg-white/5 p-4 rounded-xl border border-slate-200 dark:border-white/5">
+        <div className="p-6 space-y-8 flex-1 max-h-[60vh] overflow-y-auto pr-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 rounded-xl border border-slate-200/50 dark:border-white/5 bg-slate-50/50 dark:bg-slate-950/40 mb-6">
             <div>
               <label className="block text-[10px] font-mono uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 font-bold">Target Service Group</label>
               <select 
@@ -63,11 +63,13 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
                 onChange={(e) => setMatrixServiceGroup(e.target.value)}
                 className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-indigo-500 theme-heading-text outline-none font-mono text-xs uppercase"
               >
-                <option value="RIMS">RIMS - Remote Infrastructure</option>
-                <option value="Network">NETWORK - Infrastructure</option>
-                <option value="Cloud">CLOUD - Enterprise Architecture</option>
-                <option value="WPE">WPE - Workplace Endpoints</option>
-                <option value="MSS">MSS - Managed Security Services</option>
+                <option value="RIMS" className="w-full py-2 px-3">RIMS - Remote Infrastructure</option>
+                <option value="MI" className="w-full py-2 px-3">MI - Management Infrastructure</option>
+                <option value="DATA CENTER" className="w-full py-2 px-3">DATA CENTER</option>
+                <option value="DS" className="w-full py-2 px-3">DS - Data Services</option>
+                <option value="TSS" className="w-full py-2 px-3">TSS - Technical Support Services</option>
+                <option value="DATABASE" className="w-full py-2 px-3">DATABASE</option>
+                <option value="CLOUD" className="w-full py-2 px-3">CLOUD</option>
               </select>
             </div>
             <div>
@@ -77,14 +79,14 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
                 onChange={(e) => setMatrixTicketType(e.target.value)}
                 className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-indigo-500 theme-heading-text outline-none font-mono text-xs uppercase"
               >
-                <option value="Incident">Incident</option>
-                <option value="Service Req">Service Request</option>
-                <option value="Proactive Notifications">Proactive Notifications</option>
-                <option value="Reports">Reports</option>
-                <option value="Information">Information</option>
-                <option value="Notification">Notification</option>
-                <option value="Junk">Junk</option>
-                <option value="Maintenance">Maintenance</option>
+                <option value="Incident" className="w-full py-2 px-3">Incident</option>
+                <option value="Service Req" className="w-full py-2 px-3">Service Request</option>
+                <option value="Proactive Notifications" className="w-full py-2 px-3">Proactive Notifications</option>
+                <option value="Reports" className="w-full py-2 px-3">Reports</option>
+                <option value="Information" className="w-full py-2 px-3">Information</option>
+                <option value="Notification" className="w-full py-2 px-3">Notification</option>
+                <option value="Junk" className="w-full py-2 px-3">Junk</option>
+                <option value="Maintenance" className="w-full py-2 px-3">Maintenance</option>
               </select>
             </div>
           </div>
@@ -97,7 +99,7 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
               const colors = colorsList[index % colorsList.length];
 
               return (
-                <div key={index} className={`relative flex flex-col md:flex-row gap-4 p-4 rounded-xl border border-${colors}-500/20 bg-${colors}-500/5 group`}>
+                <div key={index} className={`relative flex flex-col xl:flex-row xl:items-center justify-between gap-4 w-full p-4 rounded-xl border border-${colors}-500/20 bg-${colors}-500/5 group`}>
                   {matrixTiers.length > 1 && (
                     <button 
                       onClick={() => removeMatrixTier(index)} 
@@ -107,7 +109,7 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
                       🗑️
                     </button>
                   )}
-                  <div className="w-full md:w-1/3 flex flex-col gap-2">
+                  <div className="w-full xl:w-1/3 flex flex-col gap-2">
                     <div className="flex items-center gap-2">
                       <span className={`w-8 h-8 rounded-full bg-${colors}-500/20 text-${colors}-500 flex items-center justify-center font-bold font-mono text-xs border border-${colors}-500/30 shadow-[0_0_10px_rgba(var(--${colors}-500),0.1)]`}>{tier.level}</span>
                       <input
@@ -127,7 +129,7 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
                     />
                   </div>
                   
-                  <div className="w-full md:w-2/3 grid grid-cols-2 gap-4 mt-2 md:mt-0">
+                  <div className="w-full xl:w-2/3 grid grid-cols-2 gap-4 mt-2 xl:mt-0">
                     <div className="space-y-2">
                       <label className="text-[9px] text-slate-500 uppercase tracking-widest font-mono font-bold block">Response Target</label>
                       <div className="flex items-center gap-2">
@@ -171,7 +173,7 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
           </div>
         </div>
 
-        <div className="p-6 border-t border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/20 sticky bottom-0 z-10 flex justify-end gap-4 rounded-b-2xl">
+        <div className="p-6 border-t border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/20 flex justify-end gap-4 rounded-b-2xl">
           <button onClick={onClose} className="px-6 py-2.5 bg-slate-200 dark:bg-white/5 hover:bg-slate-300 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 font-mono text-xs font-bold uppercase rounded-xl transition-all tracking-widest">
             CANCEL
           </button>

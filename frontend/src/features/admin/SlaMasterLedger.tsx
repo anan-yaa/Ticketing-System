@@ -7,12 +7,12 @@ export const SlaMasterLedger: React.FC = () => {
   const [filterGroup, setFilterGroup] = useState('ALL');
   const [isSlaModalOpen, setIsSlaModalOpen] = useState(false);
 
-  // Hardcoded matrix node blocks for display
-  const MATRIX_BLOCKS = [
+  const [slaRules, setSlaRules] = useState([
     {
       id: 'cloud_incident',
-      label: '☁️ CLOUD - INCIDENT COMPLIANCE MATRIX',
-      group: 'CLOUD',
+      label: '☁️ CLOUD - INCIDENT',
+      serviceGroup: 'CLOUD',
+      ticketType: 'INCIDENT',
       tiers: [
         { level: 'P1', desc: 'Critical Outage / Server Down', resp: '15 Mins', res: '2 Hours' },
         { level: 'P2', desc: 'High Impact / Degradation', resp: '30 Mins', res: '4 Hours' },
@@ -22,9 +22,10 @@ export const SlaMasterLedger: React.FC = () => {
       ]
     },
     {
-      id: 'network_incident',
-      label: '🌐 NETWORK - INCIDENT COMPLIANCE MATRIX',
-      group: 'NETWORK',
+      id: 'mi_incident',
+      label: '🌐 MI - INCIDENT',
+      serviceGroup: 'MI',
+      ticketType: 'INCIDENT',
       tiers: [
         { level: 'P1', desc: 'Total Routing Failure', resp: '10 Mins', res: '1 Hour 30 Mins' },
         { level: 'P2', desc: 'Subnet Unreachable', resp: '20 Mins', res: '3 Hours' },
@@ -34,8 +35,9 @@ export const SlaMasterLedger: React.FC = () => {
     },
     {
       id: 'rims_maintenance',
-      label: '⚙️ RIMS - MAINTENANCE COMPLIANCE MATRIX',
-      group: 'RIMS',
+      label: '⚙️ RIMS - MAINTENANCE',
+      serviceGroup: 'RIMS',
+      ticketType: 'MAINTENANCE',
       tiers: [
         { level: 'P1', desc: 'Emergency Patching', resp: '1 Hour', res: '8 Hours' },
         { level: 'P2', desc: 'Zero-day Mitigation', resp: '2 Hours', res: '24 Hours' },
@@ -43,50 +45,66 @@ export const SlaMasterLedger: React.FC = () => {
         { level: 'P4', desc: 'Scheduled Audits', resp: '48 Hours', res: '336 Hours' },
       ]
     }
-  ];
+  ]);
 
-  const filteredBlocks = filterGroup === 'ALL' ? MATRIX_BLOCKS : MATRIX_BLOCKS.filter(b => b.group === filterGroup);
+  const filteredRules = filterGroup === 'ALL' ? slaRules : slaRules.filter(b => b.serviceGroup === filterGroup);
+
+  const sortedRules = [...filteredRules].sort((a, b) => {
+    // Step 1: Compare Service Group Names (e.g., CLOUD vs NETWORK)
+    const groupCompare = a.serviceGroup.localeCompare(b.serviceGroup);
+    if (groupCompare !== 0) return groupCompare;
+    
+    // Step 2: If the group matches, sort by Ticket Type (e.g., INCIDENT vs SERVICE REQUEST)
+    return a.ticketType.localeCompare(b.ticketType);
+  });
 
   return (
     <div className="flex flex-col h-full bg-slate-50 dark:bg-[#0a0a0a] text-slate-900 dark:text-slate-100 p-6 lg:p-10 transition-colors duration-300">
-      
+
       {/* Page View Header Layout */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-slate-200 dark:border-white/10 mb-8">
         <div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate('/settings')}
+              onClick={() => {
+                setIsSlaModalOpen(false); // Close any floating rules config overlays safely
+                navigate("/settings"); // Move directly back to the valid configuration route
+              }}
               className="group p-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 shadow-sm flex items-center justify-center"
               title="Return to Master Data Configuration"
             >
-              <svg 
-                className="w-4 h-4 text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor" 
+              <svg
+                className="w-4 h-4 text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
                 strokeWidth={2.5}
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </button>
-            
+
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
               SLA Compliance Engine
             </h1>
           </div>
           <p className="text-xs theme-body-subtext font-mono mt-2">Comprehensive view of all provisioned SLA combinations across the organization.</p>
         </div>
-        
+
         <div className="flex items-center gap-4">
-          <select 
+          <select
             value={filterGroup}
             onChange={(e) => setFilterGroup(e.target.value)}
             className="px-4 py-2 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-indigo-500 theme-heading-text outline-none font-mono text-xs uppercase shadow-sm"
           >
             <option value="ALL">ALL SERVICE GROUPS</option>
-            <option value="CLOUD">CLOUD</option>
-            <option value="NETWORK">NETWORK</option>
             <option value="RIMS">RIMS</option>
+            <option value="MI">MI</option>
+            <option value="DATA CENTER">DATA CENTER</option>
+            <option value="DS">DS</option>
+            <option value="TSS">TSS</option>
+            <option value="DATABASE">DATABASE</option>
+            <option value="CLOUD">CLOUD</option>
           </select>
           <button
             onClick={() => setIsSlaModalOpen(true)}
@@ -97,9 +115,9 @@ export const SlaMasterLedger: React.FC = () => {
         </div>
       </div>
 
-      {/* Infinite Scroll Container Wrapper */}
-      <div className="w-full overflow-y-auto max-h-[85vh] space-y-6 pr-2 custom-scrollbar">
-        {filteredBlocks.map((block) => (
+      {/* Infinite Scroll Container Wrapper Removed for Native Viewport Scroll */}
+      <div className="w-full space-y-6">
+        {sortedRules.map((block) => (
           <div key={block.id} className="theme-card-panel bg-white dark:bg-slate-900/80 rounded-2xl border border-slate-200 dark:border-white/5 shadow-sm overflow-hidden">
             {/* Card Header */}
             <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-black/20 flex items-center justify-between">
@@ -126,7 +144,7 @@ export const SlaMasterLedger: React.FC = () => {
                   {block.tiers.map((tier, idx) => {
                     const colorsList = ['rose', 'orange', 'amber', 'emerald', 'cyan', 'indigo', 'purple'];
                     const colors = colorsList[idx % colorsList.length];
-                    
+
                     return (
                       <tr key={tier.level} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
                         <td className="px-6 py-4">
@@ -152,14 +170,25 @@ export const SlaMasterLedger: React.FC = () => {
           </div>
         ))}
       </div>
-      
+
       {isSlaModalOpen && (
-        <ConfigureSlaModal 
+        <ConfigureSlaModal
           onClose={() => setIsSlaModalOpen(false)}
           onSave={(payload) => {
+            const newRule = {
+              id: `${payload.serviceGroup.toLowerCase()}_${payload.ticketType.toLowerCase()}`,
+              label: `${payload.serviceGroup.toUpperCase()} - ${payload.ticketType.toUpperCase()}`,
+              serviceGroup: payload.serviceGroup,
+              ticketType: payload.ticketType,
+              tiers: payload.tiers.map((t: any) => ({
+                level: t.level,
+                desc: t.description || t.name,
+                resp: `${t.responseHours > 0 ? t.responseHours + ' Hours ' : ''}${t.responseMins > 0 || t.responseHours === 0 ? t.responseMins + ' Mins' : ''}`.trim(),
+                res: `${t.resolutionHours > 0 ? t.resolutionHours + ' Hours ' : ''}${t.resolutionMins > 0 || t.resolutionHours === 0 ? t.resolutionMins + ' Mins' : ''}`.trim()
+              }))
+            };
+            setSlaRules([...slaRules, newRule]);
             setIsSlaModalOpen(false);
-            console.log('SLA Rule payload to submit:', payload);
-            // Optionally, add a toast or query invalidation here
           }}
         />
       )}

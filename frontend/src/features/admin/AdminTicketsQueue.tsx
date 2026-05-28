@@ -22,7 +22,7 @@ const TICKET_TYPES = [
   "Maintenance"
 ];
 
-const MASTER_GROUPS = ['RIMS', 'MSS', 'WPE', 'MAINTENANCE'];
+const MASTER_GROUPS = ['RIMS', 'MI', 'DATA CENTER', 'DS', 'TSS', 'DATABASE', 'CLOUD'];
 
 export const AdminTicketsQueue: React.FC = () => {
   const queryClient = useQueryClient();
