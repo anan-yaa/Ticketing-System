@@ -93,4 +93,10 @@ export class MasterConfigController {
   async createSlaRule(@Body() dto: any) {
     return this.configService.createSlaRule(dto);
   }
+
+  @Patch('sla-rules/:id/toggle-status')
+  @Permissions('MASTER_DATA_UPDATE')
+  async toggleSlaRuleStatus(@Param('id') id: string) {
+    return this.configService.toggleSlaRuleStatus(id);
+  }
 }

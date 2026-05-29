@@ -158,39 +158,56 @@ export class MasterConfigService {
   async getSlaRules() {
     return this.prisma.slaRule.findMany({
       include: { tiers: true },
-      orderBy: [{ serviceGroup: 'asc' }, { ticketType: 'asc' }],
+      orderBy: { ticketType: 'asc' },
     });
   }
 
-  async createSlaRule(dto: any) {
-    // Basic validation / uniqueness could be added here if needed
-    const existing = await this.prisma.slaRule.findFirst({
-      where: {
-        serviceGroup: dto.serviceGroup,
-        ticketType: dto.ticketType
-      }
-    });
-    
-    if (existing) {
-      throw new ConflictException(`SLA Rule for ${dto.serviceGroup} - ${dto.ticketType} already exists`);
-    }
-
-    return this.prisma.slaRule.create({
-      data: {
-        serviceGroup: dto.serviceGroup,
+  async createSlaRule(dto: { ticketType: string; tiers: any[] }) {
+    return await this.prisma.slaRule.upsert({
+      where: { ticketType: dto.ticketType },
+      update: {
+        tiers: {
+          deleteMany: {}, // Clear previous rules to prevent indexing duplicates
+          create: dto.tiers.map(t => ({
+            level: t.tierName,
+            name: t.tierName,
+            description: t.scopeDescription || '',
+            respH: 0,
+            respM: Number(t.responseTimeMin) || 0,
+            resH: Number(t.resolutionTimeHr) || 0,
+            resM: 0,
+            isActive: t.isActive !== undefined ? t.isActive : true,
+          }))
+        }
+      },
+      create: {
         ticketType: dto.ticketType,
         tiers: {
-          create: dto.tiers.map((t: any) => ({
-            level: t.level,
-            name: t.name || t.description || 'Tier',
-            description: t.description || '',
-            respH: t.responseHours || 0,
-            respM: t.responseMins || 0,
-            resH: t.resolutionHours || 0,
-            resM: t.resolutionMins || 0
+          create: dto.tiers.map(t => ({
+            level: t.tierName,
+            name: t.tierName,
+            description: t.scopeDescription || '',
+            respH: 0,
+            respM: Number(t.responseTimeMin) || 0,
+            resH: Number(t.resolutionTimeHr) || 0,
+            resM: 0,
+            isActive: t.isActive !== undefined ? t.isActive : true,
           }))
         }
       }
+    });
+  }
+
+  async toggleSlaRuleStatus(id: string) {
+    const current = await this.prisma.slaRule.findUnique({
+      where: { id },
+    });
+    if (!current) {
+      throw new NotFoundException(`SLA Rule with ID "${id}" not found`);
+    }
+    return this.prisma.slaRule.update({
+      where: { id },
+      data: { isActive: !current.isActive },
     });
   }
 }

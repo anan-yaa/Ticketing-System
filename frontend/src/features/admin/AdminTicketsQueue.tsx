@@ -385,24 +385,13 @@ export const AdminTicketsQueue: React.FC = () => {
     }
   };
 
-  const statusColor = (s: string) => {
-    switch (String(s).toUpperCase()) {
-      case 'OPEN':
-        return 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.2)]';
-      case 'IN_PROGRESS':
-        return 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.2)]';
-      case 'CLOSED':
-        return 'bg-rose-500/10 border-rose-500/30 text-rose-400 opacity-60';
-      default:
-        return 'bg-slate-500/10 border-slate-500/30 text-slate-400';
-    }
-  };
+
 
   // If a ticket type or other core metadata properties are currently null
   const isCoreDataNull = selectedTicket && !selectedTicket.ticketType;
 
   return (
-    <div className="flex flex-col h-full space-y-6">
+    <div className="flex flex-row min-h-screen w-full bg-slate-50 dark:bg-[#030712] text-slate-900 dark:text-slate-100 transition-colors duration-300">
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-6 right-6 z-50 animate-slide-in">
@@ -421,26 +410,8 @@ export const AdminTicketsQueue: React.FC = () => {
         </div>
       )}
 
-      {/* Workspace Split-Tab Selection & Actions */}
-      <div className="flex justify-between items-center border-b border-white/5 pb-4">
-        <div className="flex gap-4">
-          {/* Horizontal pills have been migrated to the left vertical sidebar */}
-        </div>
-
-        <PermissionGate allowedPermissions={['TICKET_CREATE_AS_ADMIN']}>
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:shadow-[0_0_25px_rgba(6,182,212,0.6)] uppercase tracking-widest text-xs"
-          >
-            + Create Ticket
-          </button>
-        </PermissionGate>
-      </div>
-
-      {/* Workspace Flex Split */}
-      <div className="flex flex-col md:flex-row gap-6 w-full items-start flex-1 overflow-hidden mt-6">
-        {/* LEFT SERVICE-QUEUE FILTER RAIL */}
-        <div className="theme-card-panel w-full md:w-64 shrink-0 p-4 space-y-6 max-h-[80vh] overflow-y-auto">
+      {/* LEFT SERVICE-QUEUE FILTER RAIL (Sidebar) */}
+      <div className="w-64 min-h-screen bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-900 p-6 flex flex-col gap-4 shrink-0">
           {/* POSITION 1: MY QUEUE */}
           <div>
             <button
@@ -448,14 +419,14 @@ export const AdminTicketsQueue: React.FC = () => {
                 setWorkspace('myQueue');
                 setSelectedGroupFilter('ALL');
               }}
-              className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-mono transition-all duration-200 uppercase flex items-center justify-between border ${workspace === 'myQueue'
-                ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30 shadow-[0_0_15px_rgba(34,211,238,0.15)] font-bold'
-                : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'
-                }`}
+              className={workspace === 'myQueue'
+                ? "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-sky-500/10 text-sky-400 border border-sky-500/20"
+                : "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white transition-all duration-200"
+              }
             >
-              <span className="flex items-center gap-2">📁 My Queue</span>
-              <span className="font-bold text-slate-300">
-                ({myQueueTickets.length})
+              <span className="flex-1 text-left">My Queue</span>
+              <span className="font-bold">
+                {myQueueTickets.length}
               </span>
             </button>
           </div>
@@ -468,14 +439,14 @@ export const AdminTicketsQueue: React.FC = () => {
                 setIsExpanded(!isExpanded);
                 if (workspace !== 'openQueue') setSelectedGroupFilter('ALL');
               }}
-              className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-mono transition-all duration-200 uppercase flex items-center justify-between border ${workspace === 'openQueue'
-                ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30 shadow-[0_0_15px_rgba(34,211,238,0.15)] font-bold'
-                : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'
-                }`}
+              className={workspace === 'openQueue'
+                ? "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-sky-500/10 text-sky-400 border border-sky-500/20 w-full"
+                : "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white transition-all duration-200 w-full"
+              }
             >
-              <span className="flex items-center gap-2">🌐 Open Queue</span>
+              <span className="flex-1 text-left">Open Queue</span>
               <span className={`transform transition-transform duration-200 text-[10px] ${isExpanded ? 'rotate-90' : 'rotate-0'}`}>
-                ▶
+                ▼
               </span>
             </button>
 
@@ -535,19 +506,30 @@ export const AdminTicketsQueue: React.FC = () => {
                 setWorkspace('closedArchive');
                 setSelectedGroupFilter('ALL');
               }}
-              className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-mono transition-all duration-200 uppercase flex items-center justify-between border ${workspace === 'closedArchive'
-                ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30 shadow-[0_0_15px_rgba(34,211,238,0.15)] font-bold'
-                : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'
-                }`}
+              className={workspace === 'closedArchive'
+                ? "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-sky-500/10 text-sky-400 border border-sky-500/20"
+                : "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:bg-white/5 hover:text-white transition-all duration-200"
+              }
             >
-              <span className="flex items-center gap-2">🗄️ Closed Archive</span>
-              <span className="font-bold text-slate-300">({closedArchiveTickets.length})</span>
+              <span className="flex-1 text-left">Closed Archive</span>
+              <span className="font-bold">{closedArchiveTickets.length}</span>
             </button>
           </div>
         </div>
 
         {/* RIGHT CONTENT WORKSPACE */}
-        <div className="flex-1 w-full overflow-y-auto">
+        <div className="flex-1 p-8 overflow-y-auto">
+          {/* Action Header */}
+          <div className="flex justify-end items-center mb-6">
+            <PermissionGate allowedPermissions={['TICKET_CREATE_AS_ADMIN']}>
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl shadow-lg shadow-sky-600/10 hover:shadow-sky-500/20 transform hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2"
+              >
+                + CREATE TICKET
+              </button>
+            </PermissionGate>
+          </div>
           {isLoadingTickets ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
@@ -559,155 +541,91 @@ export const AdminTicketsQueue: React.FC = () => {
               ERROR FETCHING QUEUE CHANNELS
             </div>
           ) : workspace === 'myQueue' ? (
-            <div className="theme-card-panel overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-slate-300 font-mono text-xs">
-                  <thead>
-                    <tr className="border-b border-white/10 bg-white/5 uppercase tracking-widest text-[10px] text-slate-400">
-                      <th className="p-4 font-bold font-mono">Identifier</th>
-                      <th className="p-4 font-bold font-mono">Title</th>
-                      <th className="p-4 font-bold font-mono">Customer Name</th>
-                      <th className="p-4 font-bold font-mono">Category</th>
-                      <th className="p-4 font-bold font-mono">Status</th>
-                      <th className="p-4 font-bold font-mono">Assigned Engineer</th>
-                      <th className="p-4 font-bold font-mono text-center">Priority</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {myQueueTickets.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="p-8 text-center text-slate-500 uppercase font-mono">
-                          No active tickets inside this channel
-                        </td>
-                      </tr>
-                    ) : (
-                      myQueueTickets.map((t) => {
-                        return (
-                          <tr
-                            key={t.id}
-                            onClick={() => setSelectedTicket(t)}
-                            className="border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer group"
-                          >
-                            <td className="p-4 font-bold text-white group-hover:text-cyan-400 font-mono">
-                              #{t.id.slice(0, 8).toUpperCase()}
-                            </td>
-                            <td className="p-4 font-semibold text-slate-200 group-hover:text-cyan-400 font-mono">
-                              {t.title}
-                            </td>
-                            <td className="p-4 font-mono">
-                              {t.customerName || t.customer?.name || 'N/A'}
-                            </td>
-                            <td className="p-4 uppercase font-mono">{t.category || 'General'}</td>
-                            <td className="p-4 font-mono">
-                              {t.status === 'IN_PROGRESS' ? (
-                                <select
-                                  onClick={(e) => e.stopPropagation()}
-                                  value={t.subStatus || 'NONE'}
-                                  onChange={async (e) => {
-                                    const newSubStatus = e.target.value;
-                                    try {
-                                      await api.patch(`/tickets/${t.id}/status`, { subStatus: newSubStatus });
-                                      queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
+            <div className="space-y-4">
+              {myQueueTickets.length === 0 ? (
+                <div className="text-center text-slate-500 uppercase font-mono py-8">
+                  No active tickets inside this channel
+                </div>
+              ) : (
+                myQueueTickets.map((t) => (
+                  <div
+                    key={t.id}
+                    onClick={() => setSelectedTicket(t)}
+                    className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/60 rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)] dark:shadow-none transition-all duration-300 mb-5 flex flex-col gap-3 relative overflow-hidden cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold font-mono text-slate-400 tracking-wider">#{t.id.slice(0, 8).toUpperCase()}</span>
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border uppercase ${t.status === 'OPEN' ? 'bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-100 dark:border-sky-500/20' : t.status === 'IN_PROGRESS' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/20' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-700'}`}>
+                        {t.status}
+                      </span>
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-slate-700 uppercase">
+                        {t.priority || 'LOW PRIORITY'}
+                      </span>
+                    </div>
+                    
+                    <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight group-hover:text-sky-600 dark:group-hover:text-cyan-400 transition-colors mt-1">{t.title}</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">{t.description}</p>
 
-                                      // If this ticket is also currently open in the drawer, update the local state too
-                                      if (selectedTicket?.id === t.id) {
-                                        setSelectedTicket({ ...selectedTicket, subStatus: newSubStatus });
-                                      }
-
-                                      setToast({ message: `Status updated to ${newSubStatus.replace(/_/g, ' ')}`, type: 'success' });
-                                    } catch (err) {
-                                      setToast({ message: 'Failed to update Status', type: 'error' });
-                                    }
-                                  }}
-                                  className="bg-slate-900/80 border border-white/10 text-xs font-mono uppercase rounded-lg px-2 py-1 outline-none transition-all focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 cursor-pointer text-slate-300 w-36"
-                                >
-                                  <option value="NONE">ASSIGN STATE</option>
-                                  <option value="WORK_IN_PROGRESS">WORK IN PROGRESS</option>
-                                  <option value="WAITING_FOR_APPROVAL">WAITING FOR APPROVAL</option>
-                                  <option value="WAITING_FOR_AGENT">WAITING FOR AGENT</option>
-                                  <option value="WAITING_FOR_VENDOR">WAITING FOR VENDOR</option>
-                                  <option value="WAITING_FOR_CUSTOMER">WAITING FOR CUSTOMER</option>
-                                  <option value="ON_HOLD">ON HOLD</option>
-                                  <option value="UNDER_OBSERVATION">UNDER OBSERVATION</option>
-                                </select>
-                              ) : (
-                                <span className="text-slate-500">—</span>
-                              )}
-                            </td>
-                            <td className="p-4 font-mono">
-                              <span className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-full text-slate-300 text-[10px]">
-                                {t.ticketOwner?.name || t.ticketOwner?.email || 'N/A'}
-                              </span>
-                            </td>
-                            <td className="p-4 text-center">
-                              <span className={`px-2 py-0.5 border text-[10px] font-bold font-mono rounded uppercase ${priorityColor(t.priority)}`}>
-                                {t.priority}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                    <div className="mt-2 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-x-6 gap-y-2">
+                      <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">CUSTOMER:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.customer?.name || t.customer?.email || 'N/A'}</span></div>
+                      <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">CATEGORY:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.category || 'General'}</span></div>
+                      {t.ticketType && (
+                        <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">TYPE:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.ticketType}</span></div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">SLA DEADLINE:</span> 
+                        <span className="text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-100/50 dark:border-rose-500/20 font-mono text-xs font-semibold inline-flex items-center">
+                          {new Date(t.slaDeadline).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           ) : workspace === 'closedArchive' ? (
-            <div className="theme-card-panel overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-slate-300 font-mono text-xs">
-                  <thead>
-                    <tr className="border-b border-white/10 bg-white/5 uppercase tracking-widest text-[10px] text-slate-400">
-                      <th className="p-4 font-bold font-mono">Identifier</th>
-                      <th className="p-4 font-bold font-mono">Customer Name</th>
-                      <th className="p-4 font-bold font-mono">Category</th>
-                      <th className="p-4 font-bold font-mono">Closed Date</th>
-                      <th className="p-4 font-bold font-mono text-center">SLA Audit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {closedArchiveTickets.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="p-8 text-center text-slate-500 uppercase font-mono">
-                          No closed tickets in historical archive
-                        </td>
-                      </tr>
-                    ) : (
-                      closedArchiveTickets.map((t) => {
-                        const isBreached = t.isSlaBreached ?? (t.closedAt ? new Date(t.closedAt) > new Date(t.slaDeadline) : new Date() > new Date(t.slaDeadline));
-                        return (
-                          <tr
-                            key={t.id}
-                            onClick={() => setSelectedTicket(t)}
-                            className="border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer group"
-                          >
-                            <td className="p-4 font-bold text-white group-hover:text-cyan-400 font-mono">
-                              #{t.id.slice(0, 8).toUpperCase()}
-                            </td>
-                            <td className="p-4 font-mono">
-                              {t.customerName || t.customer?.name || 'N/A'}
-                            </td>
-                            <td className="p-4 uppercase font-mono">{t.category || 'General'}</td>
-                            <td className="p-4 font-mono">
-                              {t.closedAt ? new Date(t.closedAt).toLocaleString() : 'N/A'}
-                            </td>
-                            <td className="p-4 text-center">
-                              <span
-                                className={`px-3 py-1 font-black tracking-widest text-[9px] uppercase rounded-full border ${!isBreached
-                                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.3)]'
-                                  : 'bg-rose-500/10 border-rose-500/30 text-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.3)] animate-pulse'
-                                  }`}
-                              >
-                                {!isBreached ? 'COMPLIANT' : 'BREACHED'}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+            <div className="space-y-4">
+              {closedArchiveTickets.length === 0 ? (
+                <div className="text-center text-slate-500 uppercase font-mono py-8">
+                  No closed tickets in historical archive
+                </div>
+              ) : (
+                closedArchiveTickets.map((t) => {
+                  const isBreached = t.isSlaBreached ?? (t.closedAt ? new Date(t.closedAt) > new Date(t.slaDeadline) : new Date() > new Date(t.slaDeadline));
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => setSelectedTicket(t)}
+                      className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/60 rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)] dark:shadow-none transition-all duration-300 mb-5 flex flex-col gap-3 relative overflow-hidden cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-bold font-mono text-slate-400 tracking-wider">#{t.id.slice(0, 8).toUpperCase()}</span>
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border uppercase ${t.status === 'OPEN' ? 'bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-100 dark:border-sky-500/20' : t.status === 'IN_PROGRESS' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/20' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-700'}`}>
+                          {t.status}
+                        </span>
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-slate-700 uppercase">
+                          {t.priority || 'LOW PRIORITY'}
+                        </span>
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border uppercase ml-auto ${!isBreached ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20'}`}>
+                          {!isBreached ? 'SLA COMPLIANT' : 'SLA BREACHED'}
+                        </span>
+                      </div>
+                      
+                      <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight group-hover:text-sky-600 dark:group-hover:text-cyan-400 transition-colors mt-1">{t.title}</h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">{t.description}</p>
+
+                      <div className="mt-2 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-x-6 gap-y-2">
+                        <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">CUSTOMER:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.customer?.name || t.customer?.email || 'N/A'}</span></div>
+                        <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">CATEGORY:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.category || 'General'}</span></div>
+                        {t.ticketType && (
+                          <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">TYPE:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.ticketType}</span></div>
+                        )}
+                        <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">CLOSED AT:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.closedAt ? new Date(t.closedAt).toLocaleString() : 'N/A'}</span></div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           ) : displayedTickets.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-500 py-12">
@@ -720,36 +638,32 @@ export const AdminTicketsQueue: React.FC = () => {
                 <div
                   key={t.id}
                   onClick={() => setSelectedTicket(t)}
-                  className="theme-card-panel hover:border-cyan-500/20 p-6 transition-all hover:bg-black/40 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 cursor-pointer group"
+                  className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/60 rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)] dark:shadow-none transition-all duration-300 mb-5 flex flex-col gap-3 relative overflow-hidden cursor-pointer group"
                 >
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-mono text-slate-500 font-bold uppercase select-all">#{t.id.slice(0, 8)}</span>
-                      <span className={`px-2 py-0.5 border text-[10px] font-bold font-mono rounded uppercase ${statusColor(t.status)}`}>
-                        {t.status}
-                      </span>
-                      <span className={`px-2 py-0.5 border text-[10px] font-bold font-mono rounded uppercase ${priorityColor(t.priority)}`}>
-                        {t.priority}
-                      </span>
-                    </div>
-                    <h3 className="text-white font-semibold text-base group-hover:text-cyan-400 transition-colors">{t.title}</h3>
-                    <p className="text-slate-400 text-xs line-clamp-1">{t.description}</p>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold font-mono text-slate-400 tracking-wider">#{t.id.slice(0, 8).toUpperCase()}</span>
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border uppercase ${t.status === 'OPEN' ? 'bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-100 dark:border-sky-500/20' : t.status === 'IN_PROGRESS' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/20' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-700'}`}>
+                      {t.status}
+                    </span>
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-slate-700 uppercase">
+                      {t.priority || 'LOW PRIORITY'}
+                    </span>
+                  </div>
+                  
+                  <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight group-hover:text-sky-600 dark:group-hover:text-cyan-400 transition-colors mt-1">{t.title}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">{t.description}</p>
 
-                    <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-slate-500 text-xs font-mono">
-                      <div>
-                        <span className="text-slate-600">CUSTOMER:</span> {t.customer?.name || 'Unassigned'} ({t.customer?.email || 'N/A'})
-                      </div>
-                      <div>
-                        <span className="text-slate-600">CATEGORY:</span> {t.category || 'General'}
-                      </div>
-                      {t.ticketType && (
-                        <div>
-                          <span className="text-slate-600">TYPE:</span> {t.ticketType}
-                        </div>
-                      )}
-                      <div>
-                        <span className="text-slate-600">SLA DEADLINE:</span> {new Date(t.slaDeadline).toLocaleString()}
-                      </div>
+                  <div className="mt-2 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-x-6 gap-y-2">
+                    <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">CUSTOMER:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.customer?.name || t.customer?.email || 'N/A'}</span></div>
+                    <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">CATEGORY:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.category || 'General'}</span></div>
+                    {t.ticketType && (
+                      <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">TYPE:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.ticketType}</span></div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">SLA DEADLINE:</span> 
+                      <span className="text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-100/50 dark:border-rose-500/20 font-mono text-xs font-semibold inline-flex items-center">
+                        {new Date(t.slaDeadline).toLocaleString()}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -757,7 +671,6 @@ export const AdminTicketsQueue: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
 
       {/* SPLIT-PANE TICKET DETAILS VIEW MODAL */}
       {selectedTicket && (

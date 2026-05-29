@@ -88,8 +88,8 @@ export const LayoutHeader: React.FC = () => {
         </nav>
       </div>
 
-      <header className="sticky top-0 z-30 w-full bg-slate-900/60 backdrop-blur-md border-b border-slate-800/60 shrink-0">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <header className="sticky top-0 z-30 w-full border-b border-slate-200 dark:border-slate-900 bg-white dark:bg-[#030712]/80 backdrop-blur-md px-6 py-4 shrink-0 transition-colors duration-300">
+        <div className="max-w-7xl mx-auto h-16 flex items-center justify-between">
           {/* Left Side: Toggle & Glowing Title/Logo */}
           <div className="flex items-center gap-4">
             <button
@@ -104,11 +104,11 @@ export const LayoutHeader: React.FC = () => {
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)] animate-pulse"></div>
               <div className="flex flex-col items-start justify-center leading-none">
-                <span className="text-l font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-500 font-mono uppercase">
-                  SUPER ADMIN
+                <span className="text-sm font-black tracking-wider text-slate-800 dark:text-sky-400 font-mono uppercase">
+                  SUPER ADMIN PORTAL
                 </span>
-                <span className="text-l font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-500 font-mono uppercase mt-0.5">
-                  PORTAL
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-400 font-mono mt-0.5">
+                  System Admin
                 </span>
               </div>
             </div>

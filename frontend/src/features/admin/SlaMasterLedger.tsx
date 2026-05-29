@@ -29,11 +29,21 @@ export const SlaMasterLedger: React.FC = () => {
     }
   });
 
+  const toggleStatusMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return api.patch(`/master-config/sla-rules/${id}/toggle-status`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['slaComplianceRules'] });
+    }
+  });
+
   const slaRules = dbSlaRules.map((rule: any) => ({
     id: rule.id,
     label: `${rule.serviceGroup} - ${rule.ticketType}`,
     serviceGroup: rule.serviceGroup,
     ticketType: rule.ticketType,
+    isActive: rule.isActive ?? true,
     tiers: rule.tiers || []
   }));
 
@@ -75,7 +85,7 @@ export const SlaMasterLedger: React.FC = () => {
             </button>
 
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              SLA Compliance Engine
+              SLA Configuration
             </h1>
           </div>
           <p className="text-xs theme-body-subtext font-mono mt-2">Comprehensive view of all provisioned SLA combinations across the organization.</p>
@@ -114,13 +124,32 @@ export const SlaMasterLedger: React.FC = () => {
               <h2 className="text-sm font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-2">
                 {block.label}
               </h2>
-              <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest px-3 py-1 bg-slate-200/50 dark:bg-white/5 rounded-full">
-                {block.tiers.length} Tiers Active
-              </span>
+              <div className="flex items-center gap-4">
+                {/* Active / Inactive Status pill tag */}
+                <span className={`text-[10px] px-3 py-1 rounded-full border font-mono font-bold tracking-widest transition-all ${
+                  block.isActive 
+                    ? 'bg-emerald-950/40 text-emerald-400 border-emerald-800/40' 
+                    : 'bg-rose-950/40 text-rose-400 border-rose-800/40'
+                }`}>
+                  {block.isActive ? `${block.tiers.length} TIERS ACTIVE` : 'DISABLED'}
+                </span>
+
+                {/* Interactive Disable Toggle Switch */}
+                <button
+                  onClick={() => toggleStatusMutation.mutate(block.id)}
+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                    block.isActive ? 'bg-cyan-500' : 'bg-slate-700'
+                  }`}
+                >
+                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    block.isActive ? 'translate-x-4' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
             </div>
 
             {/* Render Detailed High-Contrast Tables */}
-            <div className="p-0 overflow-x-auto">
+            <div className={`p-0 overflow-x-auto transition-all duration-300 ${!block.isActive ? 'opacity-40 select-none pointer-events-none saturate-50' : ''}`}>
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-black/40 border-b border-slate-200 dark:border-white/5">

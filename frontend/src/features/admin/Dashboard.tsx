@@ -24,10 +24,10 @@ export const Dashboard: React.FC = () => {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Active Users Card */}
-        <div className="relative group overflow-hidden bg-white dark:bg-[#0b0f19] backdrop-blur-xl border border-slate-200 dark:border-slate-800/40 p-8 rounded-3xl shadow-sm dark:shadow-[0_10px_30px_rgba(0,0,0,0.5)] transition-all hover:border-cyan-500/30 hover:shadow-[0_0_30px_rgba(34,211,238,0.1)]">
+        <div className="relative group overflow-hidden w-full p-6 rounded-2xl border border-slate-300/90 dark:border-white/5 bg-white dark:bg-slate-950/40 shadow-sm transition-all duration-300">
           <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-3xl -mr-10 -mt-10 group-hover:bg-cyan-500/10 transition-colors"></div>
           <div className="flex flex-col">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 font-mono tracking-wider uppercase mb-6 flex items-center gap-2">
+            <h3 className="text-xs font-bold tracking-wider text-slate-500 dark:text-cyan-400 uppercase flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.8)]"></span>
               Active Users
             </h3>
@@ -35,20 +35,20 @@ export const Dashboard: React.FC = () => {
               <div className="text-3xl font-black font-mono text-slate-500 dark:text-slate-400 animate-pulse">QUERYING...</div>
             ) : (
               <div className="flex items-baseline gap-2">
-                <span className="text-5xl font-black font-mono text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 tracking-tight">
+                <span className="text-5xl font-extrabold tracking-tight text-slate-900 dark:text-sky-500 mt-4">
                   {activeUsersCount}
                 </span>
-                <span className="text-xs font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest">Accounts Active</span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-500 tracking-wide uppercase">Accounts Active</span>
               </div>
             )}
           </div>
         </div>
 
         {/* System Roles Card */}
-        <div className="relative group overflow-hidden bg-white dark:bg-[#0b0f19] backdrop-blur-xl border border-slate-200 dark:border-slate-800/40 p-8 rounded-3xl shadow-sm dark:shadow-[0_10px_30px_rgba(0,0,0,0.5)] transition-all hover:border-cyan-500/30 hover:shadow-[0_0_30px_rgba(34,211,238,0.1)]">
+        <div className="relative group overflow-hidden w-full p-6 rounded-2xl border border-slate-300/90 dark:border-white/5 bg-white dark:bg-slate-950/40 shadow-sm transition-all duration-300">
           <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-3xl -mr-10 -mt-10 group-hover:bg-cyan-500/10 transition-colors"></div>
           <div className="flex flex-col">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 font-mono tracking-wider uppercase mb-6 flex items-center gap-2">
+            <h3 className="text-xs font-bold tracking-wider text-slate-500 dark:text-cyan-400 uppercase flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.8)]"></span>
               System Defined Roles
             </h3>
@@ -56,10 +56,10 @@ export const Dashboard: React.FC = () => {
               <div className="text-3xl font-black font-mono text-slate-500 dark:text-slate-400 animate-pulse">QUERYING...</div>
             ) : (
               <div className="flex items-baseline gap-2">
-                <span className="text-5xl font-black font-mono text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 tracking-tight">
+                <span className="text-5xl font-extrabold tracking-tight text-slate-900 dark:text-sky-500 mt-4">
                   {totalRolesCount}
                 </span>
-                <span className="text-xs font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest">Defined Roles</span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-500 tracking-wide uppercase">Defined Roles</span>
               </div>
             )}
           </div>

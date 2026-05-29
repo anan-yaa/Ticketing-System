@@ -442,7 +442,7 @@ export const MasterDataConfig: React.FC = () => {
               slaRules.map((rule: any) => (
                 <div key={rule.id} className="flex justify-between items-center p-3 border-b border-slate-200 dark:border-slate-800">
                   <span className="font-mono text-sm uppercase text-slate-700 dark:text-slate-200">
-                    🔹 {rule.serviceGroup} - {rule.ticketType}
+                    🔹 {rule.ticketType}
                   </span>
                   <span className="text-xs text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-950/40 px-2 py-0.5 rounded-full border border-cyan-200 dark:border-cyan-800/40">
                     {rule.tiers?.length || 0} TIERS

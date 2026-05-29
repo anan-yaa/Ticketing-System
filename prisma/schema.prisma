@@ -262,14 +262,11 @@ model SlaMatrix {
 
 model SlaRule {
   id           String    @id @default(uuid())
-  serviceGroup String
-  ticketType   String
+  ticketType   String    @unique
   isActive     Boolean   @default(true)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   tiers        SlaTier[]
-
-  @@unique([serviceGroup, ticketType])
 }
 
 model SlaTier {
@@ -281,6 +278,7 @@ model SlaTier {
   respM       Int      @default(0)
   resH        Int      @default(0)
   resM        Int      @default(0)
+  isActive    Boolean  @default(true)
   slaRuleId   String
   slaRule     SlaRule  @relation(fields: [slaRuleId], references: [id], onDelete: Cascade)
 }
