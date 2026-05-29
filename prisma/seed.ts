@@ -239,6 +239,27 @@ async function main() {
   }
   console.log('Seeded master categories');
 
+  const defaultStatuses = [
+    { name: "WORK_IN_PROGRESS", label: "Work In Progress", description: "Active ticket triage" },
+    { name: "WAITING_FOR_APPROVAL", label: "Waiting For Approval", description: "Pending sign-off" },
+    { name: "WAITING_FOR_AGENT", label: "Waiting For Agent", description: "Assigned to queue tier" },
+    { name: "WAITING_FOR_VENDOR", label: "Waiting for Vendor", description: "Issue with hardware/etc (calling the purchase team)" },
+    { name: "WAITING_FOR_CUSTOMER", label: "Waiting for Customer", description: "Details/logs requested" },
+    { name: "ON_HOLD", label: "On Hold", description: "Temporarily frozen" },
+    { name: "UNDER_OBSERVATION", label: "Under Observation", description: "Monitoring patch behavior" },
+    { name: "RESOLVED", label: "Resolved", description: "Archive if complete" }
+  ];
+
+  await prisma.masterStatus.deleteMany();
+  for (const s of defaultStatuses) {
+    await prisma.masterStatus.upsert({
+      where: { name: s.name },
+      update: { label: s.label, description: s.description },
+      create: { name: s.name, label: s.label, description: s.description }
+    });
+  }
+  console.log('Seeded master statuses');
+
   await prisma.masterAssignmentGroup.deleteMany();
   await prisma.serviceContract.deleteMany();
 

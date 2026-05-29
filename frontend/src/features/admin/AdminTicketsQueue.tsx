@@ -24,16 +24,6 @@ const TICKET_TYPES = [
 
 const MASTER_GROUPS = ['RIMS', 'MI', 'DATA CENTER', 'DS', 'TSS', 'DATABASE', 'CLOUD'];
 
-const TICKET_STATUS_WORKFLOW = [
-  { value: "WORK_IN_PROGRESS", label: "Work In Progress" },
-  { value: "WAITING_FOR_APPROVAL", label: "Waiting For Approval" },
-  { value: "WAITING_FOR_AGENT", label: "Waiting For Agent" },
-  { value: "WAITING_FOR_VENDOR", label: "Waiting for Vendor" },
-  { value: "WAITING_FOR_CUSTOMER", label: "Waiting for Customer" },
-  { value: "ON_HOLD", label: "On Hold" },
-  { value: "UNDER_OBSERVATION", label: "Under Observation" },
-  { value: "RESOLVED", label: "Resolved" }
-];
 
 export const AdminTicketsQueue: React.FC = () => {
   const queryClient = useQueryClient();
@@ -80,6 +70,14 @@ export const AdminTicketsQueue: React.FC = () => {
       }
     }
   };
+
+  const { data: workflowStatuses = [] } = useQuery<any[]>({
+    queryKey: ['master-statuses'],
+    queryFn: async () => {
+      const res = await api.get('/master-config/statuses?activeOnly=true');
+      return res.data;
+    },
+  });
 
   const submitMessage = async (isInternal: boolean) => {
     if (!replyText.trim() || !selectedTicket) return;
@@ -166,7 +164,7 @@ export const AdminTicketsQueue: React.FC = () => {
   const [selectedServiceGroup, setSelectedServiceGroup] = useState('');
   const [coreCriticality, setCoreCriticality] = useState('');
   const [corePriority, setCorePriority] = useState('LOW');
-  const [coreTimeSpent, setCoreTimeSpent] = useState(0);
+
   const [coreOwnerId, setCoreOwnerId] = useState('');
   const [coreDevice, setCoreDevice] = useState('');
   const [coreIp, setCoreIp] = useState('');
@@ -230,6 +228,17 @@ export const AdminTicketsQueue: React.FC = () => {
     enabled: isCoreDataModalOpen,
   });
 
+  // Fetch SLA Config for Selected Type
+  const { data: activeSlaRule, isLoading: isLoadingSlaTiers } = useQuery({
+    queryKey: ['activeSlaRuleForType', coreType],
+    queryFn: async () => {
+      if (!coreType) return null;
+      const res = await api.get(`/master-config/sla-rules?type=${coreType}`);
+      return res.data;
+    },
+    enabled: !!coreType && isCoreDataModalOpen
+  });
+
 
   // Show Toast Helper
   const showToast = (message: string, type: 'success' | 'error') => {
@@ -261,6 +270,10 @@ export const AdminTicketsQueue: React.FC = () => {
     mutationFn: ({ id, payload }: { id: string; payload: any }) => updateTicketCoreData(id, payload),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['activeTicketsList'] });
+      queryClient.invalidateQueries({ queryKey: ['archivedTicketsList'] });
+      queryClient.invalidateQueries({ queryKey: ['ticketDetails', updated.id] });
+      
       showToast('CORE DATA ADDED', 'success');
       setIsCoreDataModalOpen(false);
 
@@ -314,6 +327,8 @@ export const AdminTicketsQueue: React.FC = () => {
     e.preventDefault();
     if (!selectedTicket) return;
 
+    const isResolved = coreStatus === 'RESOLVED';
+
     const payload: any = {
       ticketType: coreType || undefined,
       queueId: selectedServiceGroup || undefined,
@@ -324,10 +339,15 @@ export const AdminTicketsQueue: React.FC = () => {
       customerName: coreCustomerName || undefined,
       criticality: coreCriticality || undefined,
       priority: corePriority || undefined,
-      timeSpentMin: parseInt(String(coreTimeSpent), 10) || 0,
+
       ticketOwnerId: coreOwnerId || undefined,
       affectedDevice: coreDevice || undefined,
       deviceIp: coreIp || undefined,
+
+      // Automation Flags
+      isArchived: isResolved,
+      archivedAt: isResolved ? new Date().toISOString() : null,
+      closedBy: isResolved ? user?.name : null
     };
 
     updateCoreDataMutation.mutate({ id: selectedTicket.id, payload });
@@ -344,7 +364,7 @@ export const AdminTicketsQueue: React.FC = () => {
     setSelectedServiceGroup(selectedTicket.queueId || selectedTicket.serviceContract || '');
     setCoreCriticality(selectedTicket.criticality || '');
     setCorePriority(selectedTicket.priority || 'LOW');
-    setCoreTimeSpent(selectedTicket.timeSpentMin || 0);
+
     setCoreOwnerId(selectedTicket.ticketOwnerId || '');
     setCoreDevice(selectedTicket.affectedDevice || '');
     setCoreIp(selectedTicket.deviceIp || '');
@@ -715,11 +735,15 @@ export const AdminTicketsQueue: React.FC = () => {
 
                         if (selectedVal === 'RESOLVED') {
                           payload = {
-                            status: 'CLOSED',
+                            status: 'RESOLVED',
                             subStatus: 'NONE', // RESOLVED is not a valid Prisma SubStatus enum
                             assignedToId: user?.id,
                             ticketOwnerId: user?.id,
-                            closedAt: new Date().toISOString()
+                            closedAt: new Date().toISOString(),
+                            // Automation Flags
+                            isArchived: true,
+                            archivedAt: new Date().toISOString(),
+                            closedBy: user?.name
                           };
                         }
 
@@ -732,7 +756,11 @@ export const AdminTicketsQueue: React.FC = () => {
                         }
 
                         queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
-                        setToast({ message: selectedVal === 'RESOLVED' ? 'Ticket successfully resolved and archived' : `Status updated to ${selectedVal.replace(/_/g, ' ')}`, type: 'success' });
+                        queryClient.invalidateQueries({ queryKey: ['activeTicketsList'] });
+                        queryClient.invalidateQueries({ queryKey: ['archivedTicketsList'] });
+                        queryClient.invalidateQueries({ queryKey: ['ticketDetails', selectedTicket.id] });
+                        
+                        setToast({ message: selectedVal === 'RESOLVED' ? 'Ticket successfully resolved and moved to Closed Archive.' : `Status updated to ${selectedVal.replace(/_/g, ' ')}`, type: 'success' });
                       } catch (err) {
                         setToast({ message: 'Failed to update Status', type: 'error' });
                       }
@@ -836,14 +864,14 @@ export const AdminTicketsQueue: React.FC = () => {
                         const isInternalNote = cType === 'INTERNAL_NOTE';
 
                         let alignmentClass = 'items-start';
-                        let bubbleClass = 'bg-white/5 border-white/10 text-slate-300 rounded-tl-sm'; // Default CLIENT_REPLY
+                        let bubbleClass = 'border-slate-200 bg-slate-100 text-slate-700 dark:text-slate-800 rounded-tl-sm shadow-sm'; // Default CLIENT_REPLY
 
                         if (isRightAligned) {
                           alignmentClass = 'ml-auto items-end';
-                          bubbleClass = 'bg-cyan-900/10 border-cyan-500/20 text-cyan-50 rounded-tr-sm shadow-[0_0_15px_rgba(6,182,212,0.08)]';
+                          bubbleClass = 'border-cyan-100/70 bg-cyan-50 text-slate-800 dark:text-slate-900 rounded-tr-sm shadow-[0_0_15px_rgba(6,182,212,0.08)]';
                         } else if (isInternalNote) {
                           alignmentClass = 'items-start';
-                          bubbleClass = 'bg-amber-500/5 border-amber-500/20 text-amber-100 rounded-tl-sm';
+                          bubbleClass = 'border-amber-200 bg-amber-50 text-amber-900 dark:text-amber-900 rounded-tl-sm shadow-sm';
                         }
 
                         return (
@@ -858,7 +886,7 @@ export const AdminTicketsQueue: React.FC = () => {
                               <span>•</span>
                               <span>{new Date(comment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
-                            <div className={`px-5 py-3 rounded-2xl text-xs leading-relaxed border ${bubbleClass}`}>
+                            <div className={`px-5 py-3 rounded-2xl text-xs font-semibold leading-relaxed border break-words whitespace-pre-wrap ${bubbleClass}`}>
                               {comment.content}
                             </div>
                           </div>
@@ -869,26 +897,26 @@ export const AdminTicketsQueue: React.FC = () => {
                 </div>
 
                 {/* DUAL-ACTION SUBMISSION FORM TOOLBAR */}
-                <div className="bg-black/30 border border-white/5 p-4 rounded-xl mt-4">
+                <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 mt-6 transition-all duration-200">
                   <textarea
                     rows={3}
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
                     placeholder="Type a message..."
-                    className="w-full bg-slate-950/50 border border-white/10 rounded-lg p-3 text-white text-xs font-mono focus:outline-none focus:border-cyan-500/50 resize-none mb-3"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
                   />
-                  <div className="flex items-center justify-end gap-3">
+                  <div className="flex justify-end items-center gap-3 mt-3">
                     <button
                       onClick={() => submitMessage(true)}
                       disabled={!replyText.trim()}
-                      className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 text-[10px] font-mono font-bold uppercase tracking-widest rounded-lg transition-all disabled:opacity-50 flex items-center gap-2"
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-amber-200 bg-amber-50/50 hover:bg-amber-50 text-xs font-bold text-amber-700 transition-all duration-200 shadow-sm disabled:opacity-50"
                     >
                       <span>🔒</span> Add Note
                     </button>
                     <button
                       onClick={() => submitMessage(false)}
                       disabled={!replyText.trim()}
-                      className="px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-[10px] font-mono font-bold uppercase tracking-widest rounded-lg transition-all disabled:opacity-50 flex items-center gap-2"
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-all duration-200 shadow-md shadow-sky-600/10 disabled:opacity-50"
                     >
                       <span>✉</span> Reply to User
                     </button>
@@ -922,15 +950,15 @@ export const AdminTicketsQueue: React.FC = () => {
                 <SlaHealthTelemetry ticket={selectedTicket} />
 
                 {/* File Attachment Upload Block */}
-                <div className="bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/5 rounded-2xl p-6 shadow-[0_4px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_30px_rgba(0,0,0,0.3)] mt-6 backdrop-blur-md transition-all hover:bg-slate-200 dark:hover:bg-black/40">
-                  <h3 className="text-cyan-600 dark:text-cyan-400 font-mono text-[10px] font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm transition-all flex flex-col items-center justify-center gap-3 text-center mt-6">
+                  <h3 className="text-cyan-600 dark:text-cyan-400 font-mono text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 self-start w-full">
                     <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 dark:bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.4)] dark:shadow-[0_0_10px_rgba(34,211,238,0.8)]"></span>
                     Attachment Upload
                   </h3>
 
                   <div
                     onClick={() => !isUploading && fileInputRef.current?.click()}
-                    className={`relative border-2 border-dashed ${isUploading ? 'border-slate-300 bg-slate-200 dark:border-white/5 dark:bg-white/5 cursor-not-allowed' : 'border-slate-300 dark:border-white/10 hover:border-cyan-500/50 bg-white dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-900/80 cursor-pointer'} rounded-xl p-8 flex flex-col items-center justify-center transition-all group`}
+                    className="w-full border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-6 bg-slate-50/50 dark:bg-slate-950/30 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors"
                   >
                     <input
                       type="file"
@@ -960,27 +988,27 @@ export const AdminTicketsQueue: React.FC = () => {
                 </div>
 
                 {/* 📎 ATTACHMENTS SECTION */}
-                <div className="bg-black/30 border border-white/5 rounded-2xl p-6 shadow-[0_4px_30px_rgba(0,0,0,0.3)] mt-6 backdrop-blur-md transition-all hover:bg-black/40">
-                  <h3 className="text-cyan-400 font-mono text-[10px] font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"></span>
+                <div className="bg-slate-50 dark:bg-slate-900/30 border border-slate-200/80 dark:border-slate-800 rounded-xl p-5 text-center transition-all mt-6">
+                  <h3 className="text-cyan-600 dark:text-cyan-400 font-mono text-[10px] font-bold uppercase tracking-widest mb-4 flex items-center gap-2 self-start text-left w-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 dark:bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"></span>
                     📎 ATTACHMENTS
                   </h3>
                   {(!selectedTicket.attachments || selectedTicket.attachments.length === 0) ? (
-                    <p className="text-xs font-mono text-slate-500 italic">No files uploaded to this ticket yet.</p>
+                    <p className="text-xs font-medium text-slate-400 dark:text-slate-500 italic font-mono">No files uploaded to this ticket yet.</p>
                   ) : (
                     <div className="space-y-3">
                       {selectedTicket.attachments.map((file: any) => (
-                        <div key={file.id} className="bg-slate-900 border border-white/10 rounded-xl p-3 flex justify-between items-center hover:border-cyan-500/50 transition-colors">
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="text-xs font-mono text-white truncate max-w-[180px]">{file.fileName}</span>
-                            <span className="text-[10px] font-mono text-slate-400 mt-1">{(file.size / 1024).toFixed(1)} KB</span>
+                        <div key={file.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-3 flex justify-between items-center hover:border-cyan-500/50 transition-colors">
+                          <div className="flex flex-col overflow-hidden text-left">
+                            <span className="text-xs font-mono text-slate-800 dark:text-white truncate max-w-[180px]">{file.fileName}</span>
+                            <span className="text-[10px] font-mono text-slate-400 dark:text-slate-400 mt-1">{(file.size / 1024).toFixed(1)} KB</span>
                           </div>
                           <a
                             href={`http://localhost:3000/${file.filePath.startsWith('./') ? file.filePath.slice(2) : file.filePath.startsWith('/') ? file.filePath.slice(1) : file.filePath}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             download={file.fileName}
-                            className="text-[10px] bg-white/5 hover:bg-cyan-500/20 text-cyan-400 px-3 py-1.5 rounded-lg font-mono font-bold uppercase tracking-wider transition-all"
+                            className="text-[10px] bg-sky-50 dark:bg-white/5 hover:bg-sky-100 dark:hover:bg-cyan-500/20 text-sky-600 dark:text-cyan-400 px-3 py-1.5 rounded-lg font-mono font-bold uppercase tracking-wider transition-all"
                           >
                             ⬇️ Download
                           </a>
@@ -1236,7 +1264,10 @@ export const AdminTicketsQueue: React.FC = () => {
                     <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Ticket Type</label>
                     <select
                       value={coreType}
-                      onChange={(e) => setCoreType(e.target.value)}
+                      onChange={(e) => {
+                        setCoreType(e.target.value);
+                        setCorePriority(""); // Reset priority to prevent cross-contamination errors
+                      }}
                       className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all"
                     >
                       <option value="" className="bg-slate-900">Select Type</option>
@@ -1258,9 +1289,9 @@ export const AdminTicketsQueue: React.FC = () => {
                       onChange={(e) => setCoreStatus(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
                     >
-                      {TICKET_STATUS_WORKFLOW.map((status) => (
-                        <option key={status.value} value={status.value} className="bg-slate-50 dark:bg-slate-900">
-                          {status.label.toUpperCase()}
+                      {workflowStatuses.map((status) => (
+                        <option key={status.id} value={status.name}>
+                          {status.label} {status.description ? `- ${status.description}` : ''}
                         </option>
                       ))}
                     </select>
@@ -1309,8 +1340,9 @@ export const AdminTicketsQueue: React.FC = () => {
                   Panel 2: Assignment/SLA
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">User Name</label>
+                  {/* Field 1: USER NAME */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold tracking-wider text-slate-500 uppercase">User Name</label>
                     <input
                       type="text"
                       value={coreCustomerName}
@@ -1319,13 +1351,13 @@ export const AdminTicketsQueue: React.FC = () => {
                       className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">SERVICE GROUP</label>
+
+                  {/* Field 2: SERVICE GROUP */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold tracking-wider text-slate-500 uppercase">Service Group</label>
                     <select
                       value={selectedServiceGroup}
-                      onChange={(e) => {
-                        setSelectedServiceGroup(e.target.value);
-                      }}
+                      onChange={(e) => setSelectedServiceGroup(e.target.value)}
                       disabled={isLoadingGroups}
                       className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all font-semibold uppercase"
                     >
@@ -1341,8 +1373,10 @@ export const AdminTicketsQueue: React.FC = () => {
                       }
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Criticality Rating</label>
+
+                  {/* Field 3: CRITICALITY RATING */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold tracking-wider text-slate-500 uppercase">Criticality Rating</label>
                     <select
                       value={coreCriticality}
                       onChange={(e) => setCoreCriticality(e.target.value)}
@@ -1355,31 +1389,41 @@ export const AdminTicketsQueue: React.FC = () => {
                       <option value="Urgent" className="bg-slate-900">Urgent</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Priority Threat Level</label>
+
+                  {/* Field 4: PRIORITY THREAT LEVEL */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold tracking-wider text-slate-500 uppercase">Priority Threat Level</label>
                     <select
                       value={corePriority}
                       onChange={(e) => setCorePriority(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all"
+                      disabled={!coreType || isLoadingSlaTiers}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm font-semibold uppercase focus:outline-none transition-all"
                     >
-                      <option value="P4" className="bg-slate-900">P4 (Low / General Request)</option>
-                      <option value="P3" className="bg-slate-900">P3 (Medium / Minor Degradation)</option>
-                      <option value="P2" className="bg-slate-900">P2 (High / Major Disruption)</option>
-                      <option value="P1" className="bg-slate-900">P1 (Critical / System Down)</option>
+                      {!coreType ? (
+                        <option value="">-- CHOOSE A TICKET TYPE FIRST --</option>
+                      ) : isLoadingSlaTiers ? (
+                        <option value="">LOADING CONFIGURATION TIERS...</option>
+                      ) : activeSlaRule?.tiers?.length === 0 || !activeSlaRule?.tiers ? (
+                        <option value="">NO PRIORITIES PROVISIONED FOR THIS TYPE</option>
+                      ) : (
+                        <>
+                          <option value="">-- SELECT VALID PRIORITY TIER --</option>
+                          {activeSlaRule?.tiers
+                            ?.filter((tier: any) => tier.isActive)
+                            ?.map((tier: any) => (
+                              <option key={tier.id} value={tier.level}>
+                                {tier.level.toUpperCase()} - {tier.description || "CUSTOM OPERATIONAL TARGET"}
+                              </option>
+                            ))
+                          }
+                        </>
+                      )}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Time Spent Tracking (Min)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={coreTimeSpent}
-                      onChange={(e) => setCoreTimeSpent(Number(e.target.value))}
-                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Select Ticket Owner (Engineer)</label>
+
+                  {/* Field 5: SELECT TICKET OWNER (ENGINEER) span-full to align cleanly at base */}
+                  <div className="flex flex-col gap-1.5 md:col-span-2">
+                    <label className="text-xs font-bold tracking-wider text-slate-500 uppercase">Select Ticket Owner (Engineer)</label>
                     <select
                       value={coreOwnerId}
                       onChange={(e) => setCoreOwnerId(e.target.value)}

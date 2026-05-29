@@ -84,8 +84,12 @@ export class MasterConfigController {
   }
 
   @Get('sla-rules')
-  async getSlaRules() {
-    return this.configService.getSlaRules();
+  async getSlaRules(@Query('type') type?: string) {
+    const rules = await this.configService.getSlaRules();
+    if (type) {
+      return rules.find(r => r.ticketType === type) || { tiers: [] };
+    }
+    return rules;
   }
 
   @Post('sla-rules')
@@ -98,5 +102,31 @@ export class MasterConfigController {
   @Permissions('MASTER_DATA_UPDATE')
   async toggleSlaRuleStatus(@Param('id') id: string) {
     return this.configService.toggleSlaRuleStatus(id);
+  }
+
+  @Patch('sla-tier/:tierId')
+  @Permissions('MASTER_DATA_UPDATE')
+  async updateSlaTierStatus(
+    @Param('tierId') tierId: string,
+    @Body('isActive') isActive: boolean,
+  ) {
+    return this.configService.updateSlaTierStatus(tierId, isActive);
+  }
+
+  @Get('statuses')
+  async getStatuses(@Query('activeOnly') activeOnly?: string) {
+    return this.configService.getStatuses(activeOnly === 'true');
+  }
+
+  @Post('statuses')
+  @Permissions('MASTER_DATA_UPDATE')
+  async createStatus(@Body() dto: { name: string; label: string; description?: string }) {
+    return this.configService.createStatus(dto);
+  }
+
+  @Patch('statuses/:id/toggle')
+  @Permissions('MASTER_DATA_UPDATE')
+  async toggleStatus(@Param('id') id: string) {
+    return this.configService.toggleStatus(id);
   }
 }

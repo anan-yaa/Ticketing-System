@@ -210,4 +210,38 @@ export class MasterConfigService {
       data: { isActive: !current.isActive },
     });
   }
+
+  async updateSlaTierStatus(tierId: string, isActive: boolean) {
+    return this.prisma.slaTier.update({
+      where: { id: tierId },
+      data: { isActive },
+    });
+  }
+
+  async getStatuses(activeOnly?: boolean) {
+    if (activeOnly) {
+      return this.prisma.masterStatus.findMany({ where: { isActive: true }, orderBy: { createdAt: 'asc' } });
+    }
+    return this.prisma.masterStatus.findMany({ orderBy: { createdAt: 'asc' } });
+  }
+
+  async createStatus(dto: { name: string; label: string; description?: string }) {
+    return this.prisma.masterStatus.create({
+      data: {
+        name: dto.name,
+        label: dto.label,
+        description: dto.description,
+        isActive: true,
+      },
+    });
+  }
+
+  async toggleStatus(id: string) {
+    const current = await this.prisma.masterStatus.findUnique({ where: { id } });
+    if (!current) throw new NotFoundException('Status not found');
+    return this.prisma.masterStatus.update({
+      where: { id },
+      data: { isActive: !current.isActive },
+    });
+  }
 }

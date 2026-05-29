@@ -6,6 +6,31 @@ import { ConfigureSlaModal } from './ConfigureSlaModal';
 export const SlaMasterLedger = () => {
   const queryClient = useQueryClient();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const customToast = {
+    success: (msg: string) => {
+      setToast({ message: msg, type: 'success' });
+      setTimeout(() => setToast(null), 5000);
+    },
+    error: (msg: string) => {
+      setToast({ message: msg, type: 'error' });
+      setTimeout(() => setToast(null), 5000);
+    }
+  };
+
+  const toggleTierStatusMutation = useMutation({
+    mutationFn: async ({ tierId, isActive }: { tierId: string; isActive: boolean }) => {
+      return await api.patch(`/master-config/sla-tier/${tierId}`, { isActive });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['slaComplianceRules'] });
+      customToast.success("Operational priority routing updated successfully!");
+    },
+    onError: () => {
+      customToast.error("Failed to sync status change with database.");
+    }
+  });
 
   const { data: slaRules, isLoading } = useQuery({
     queryKey: ['slaComplianceRules'],
@@ -55,29 +80,66 @@ export const SlaMasterLedger = () => {
         <div>
           {slaRules?.map((rule: any) => (
             <div key={rule.id} className="w-full bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm mb-6 transition-all">
-              <h2 className="text-sm font-bold tracking-wider text-sky-600 dark:text-sky-400 uppercase mb-4">{rule.ticketType} Compliance Tiers</h2>
+              <h2 className="text-sm font-bold tracking-wider text-sky-600 dark:text-sky-400 uppercase mb-4">{rule.ticketType} Priority Tiers</h2>
 
               <div className="overflow-x-auto">
                 <table className="w-full min-w-full table-fixed text-left border-collapse">
                   <colgroup>
-                    <col className="w-[12%]" />
-                    <col className="w-[48%]" />
-                    <col className="w-[20%]" />
-                    <col className="w-[20%]" />
+                    <col className="w-[12%]" />  {/* Priority Tier */}
+                    <col className="w-[40%]" />  {/* SLA Scope Description */}
+                    <col className="w-[14%]" />  {/* Status Indicator */}
+                    <col className="w-[17%]" />  {/* Response Target */}
+                    <col className="w-[17%]" />  {/* Resolution Target */}
                   </colgroup>
                   <thead>
                     <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                       <th className="pb-3">Priority Tier</th>
                       <th className="pb-3">SLA Scope Description</th>
+                      <th className="pb-3">System Status</th>
                       <th className="pb-3 text-right">Response Target</th>
                       <th className="pb-3 text-right">Resolution Target</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50 text-xs font-medium text-slate-700 dark:text-slate-300">
                     {rule.tiers?.map((tier: any) => (
-                      <tr key={tier.id} className={tier.isActive ? "" : "opacity-40 bg-slate-50/50 dark:bg-white/5"}>
+                      <tr
+                        key={tier.id}
+                        className={`border-b border-slate-100/60 dark:border-slate-800/50 transition-all duration-200 ${tier.isActive === false
+                          ? "opacity-45 bg-slate-50/50 dark:bg-white/5 grayscale-[30%] select-none"
+                          : "hover:bg-slate-50/30 dark:hover:bg-slate-800/30"
+                          }`}
+                      >
                         <td className="py-3 font-bold text-slate-900 dark:text-slate-100">{tier.priorityLevel || tier.tierName || tier.name || 'P-'}</td>
                         <td className="py-3 text-slate-500 dark:text-slate-400">{tier.scopeDescription || 'No custom description defined.'}</td>
+                        <td className="py-3 align-middle">
+                          <div className="flex items-center gap-3">
+                            {/* Live Interaction Toggle Button Track */}
+                            <button
+                              type="button"
+                              disabled={toggleTierStatusMutation.isPending}
+                              onClick={() => {
+                                const currentStatus = tier.isActive !== false;
+                                toggleTierStatusMutation.mutate({
+                                  tierId: tier.id,
+                                  isActive: !currentStatus
+                                });
+                              }}
+                              className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${tier.isActive !== false ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'
+                                }`}
+                            >
+                              <span
+                                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${tier.isActive !== false ? 'translate-x-4' : 'translate-x-0'
+                                  }`}
+                              />
+                            </button>
+
+                            {/* Contextual Color Status Label Pill */}
+                            <span className={`text-[10px] font-black tracking-wider uppercase ${tier.isActive !== false ? 'text-emerald-600' : 'text-slate-400'
+                              }`}>
+                              {tier.isActive !== false ? "Active" : "Disabled"}
+                            </span>
+                          </div>
+                        </td>
                         <td className="py-3 text-right font-mono font-extrabold text-emerald-600 dark:text-emerald-400">
                           {tier.responseTimeMin !== undefined && tier.responseTimeMin !== null ? tier.responseTimeMin : 0} Mins
                         </td>
@@ -99,6 +161,14 @@ export const SlaMasterLedger = () => {
           onClose={() => setIsCreateModalOpen(false)}
           onSave={(payload) => createSlaMutation.mutate(payload)}
         />
+      )}
+
+      {/* Toast Notification Layer */}
+      {toast && (
+        <div className={`fixed bottom-4 right-4 px-6 py-3 rounded-xl text-sm font-bold shadow-lg transition-all animate-fade-in-up z-50 flex items-center gap-2 ${toast.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-rose-50 text-rose-600 border border-rose-200'
+          }`}>
+          {toast.type === 'success' ? '✓' : '✗'} {toast.message}
+        </div>
       )}
     </div>
   );

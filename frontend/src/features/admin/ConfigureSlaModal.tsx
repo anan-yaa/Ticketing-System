@@ -40,14 +40,6 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
       isActive: true
     }]);
   };
-
-  const removePriorityRow = (index: number) => {
-    const newTiers = [...customTiers];
-    newTiers.splice(index, 1);
-    const reindexedTiers = newTiers.map((tier, idx) => ({ ...tier, tierName: `P${idx + 1}` }));
-    setCustomTiers(reindexedTiers);
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
@@ -105,38 +97,44 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
               const colorsList = ['rose', 'orange', 'amber', 'emerald', 'cyan', 'indigo', 'purple'];
               const colors = colorsList[index % colorsList.length];
 
-              const wrapperClass = `relative flex flex-col xl:flex-row xl:items-center justify-between gap-4 w-full p-5 rounded-xl border transition-all duration-200 mb-4 group ${
-                tier.isActive 
-                  ? (index === 0 ? 'bg-rose-50/30 dark:bg-rose-950/10 border-rose-200 dark:border-rose-500/40' : index === 1 ? 'bg-amber-50/30 dark:bg-amber-950/10 border-amber-200 dark:border-amber-500/40' : `bg-${colors}-500/5 border-${colors}-500/20`)
-                  : 'bg-slate-50/70 dark:bg-slate-900/40 border-slate-200/50 dark:border-slate-800/50 opacity-50 contrast-75 grayscale'
-              }`;
+              const wrapperClass = `relative flex flex-col xl:flex-row xl:items-center justify-between gap-4 w-full p-5 rounded-xl border transition-all duration-200 mb-4 group ${tier.isActive
+                ? (index === 0 ? 'bg-rose-50/30 dark:bg-rose-950/10 border-rose-200 dark:border-rose-500/40' : index === 1 ? 'bg-amber-50/30 dark:bg-amber-950/10 border-amber-200 dark:border-amber-500/40' : `bg-${colors}-500/5 border-${colors}-500/20`)
+                : 'bg-slate-50/70 dark:bg-slate-900/40 border-slate-200/50 dark:border-slate-800/50 opacity-50 contrast-75 grayscale'
+                }`;
 
               return (
                 <div key={index} className={wrapperClass}>
-                  <button
-                    onClick={() => removePriorityRow(index)}
-                    className="absolute right-3 top-3 text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Remove Tier"
-                  >
-                    🗑️
-                  </button>
-                  <div className="w-full xl:w-5/12 flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-8 h-8 rounded-full bg-${colors}-500/20 text-${colors}-500 flex items-center justify-center font-bold font-mono text-xs border border-${colors}-500/30 shadow-[0_0_10px_rgba(var(--${colors}-500),0.1)]`}>{tier.tierName}</span>
-                      <span className={`text-[10px] font-bold uppercase tracking-widest text-${colors}-500`}>PRIORITY TIER {index + 1}</span>
+
+                  <div className="w-full xl:w-5/12 flex flex-col gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Priority Name *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., CRITICAL, HIGH, STANDARD"
+                        value={tier.tierName || ""}
+                        onChange={(e) => {
+                          const updatedTiers = [...customTiers];
+                          updatedTiers[index].tierName = e.target.value;
+                          setCustomTiers(updatedTiers);
+                        }}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 rounded-xl p-2.5 text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                      />
                     </div>
-                    <input
-                      type="text"
-                      placeholder={`${tier.tierName} Scope Description`}
-                      value={tier.scopeDescription || ""}
-                      disabled={!tier.isActive}
-                      onChange={(e) => {
-                        const updatedTiers = [...customTiers];
-                        updatedTiers[index].scopeDescription = e.target.value;
-                        setCustomTiers(updatedTiers);
-                      }}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 rounded-lg p-2.5 text-sm outline-none disabled:opacity-50 mt-1"
-                    />
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">SLA Scope Description</label>
+                      <input
+                        type="text"
+                        placeholder="Describe operational boundary details..."
+                        value={tier.scopeDescription || ""}
+                        onChange={(e) => {
+                          const updatedTiers = [...customTiers];
+                          updatedTiers[index].scopeDescription = e.target.value;
+                          setCustomTiers(updatedTiers);
+                        }}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 rounded-xl p-2.5 text-sm focus:outline-none"
+                      />
+                    </div>
                   </div>
 
                   <div className="w-full xl:w-7/12 flex items-end gap-4 mt-2 xl:mt-0">
@@ -179,27 +177,9 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
                     </div>
 
                     <div className="flex items-center gap-3 self-end mb-1">
-                      <span className={`text-[10px] font-bold tracking-wider ${
-                        tier.isActive ? 'text-emerald-500' : 'text-slate-400'
-                      }`}>
-                        {tier.isActive ? 'ENABLED' : 'DISABLED'}
-                      </span>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = [...customTiers];
-                          updated[index].isActive = !updated[index].isActive;
-                          setCustomTiers(updated);
-                        }}
-                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                          tier.isActive ? 'bg-sky-500' : 'bg-slate-300 dark:bg-slate-700'
-                        }`}
-                      >
-                        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          tier.isActive ? 'translate-x-4' : 'translate-x-0'
-                        }`} />
-                      </button>
+
+
                     </div>
                   </div>
                 </div>
@@ -221,6 +201,12 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
           </button>
           <button
             onClick={() => {
+              const hasEmptyName = customTiers.some(t => !t.tierName || !t.tierName.trim());
+              if (hasEmptyName) {
+                setToast({ message: "All configuration tiers require an explicit Priority Name.", type: 'error' });
+                setTimeout(() => setToast(null), 5000);
+                return;
+              }
               if (!matrixTicketType) {
                 setToast({ message: "Ticket Type selection is mandatory to map custom Priority Tiers.", type: 'error' });
                 setTimeout(() => setToast(null), 5000);

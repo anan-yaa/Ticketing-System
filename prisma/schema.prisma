@@ -173,6 +173,13 @@ model Ticket {
 
   scheduledAt      DateTime?
   schedulingReason String?
+  
+  // Automation and Archive Flags
+  isArchived       Boolean   @default(false)
+  archivedAt       DateTime?
+  slaTimerActive   Boolean   @default(true)
+  closedBy         String?
+
   attachments      Attachment[]
 
   parentId String?
@@ -231,6 +238,16 @@ model MasterCategory {
 model MasterType {
   id          String   @id @default(uuid())
   name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model MasterStatus {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  label       String
   description String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())

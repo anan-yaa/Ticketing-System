@@ -329,16 +329,26 @@ export class TicketsService {
     }
 
     // Strip non-Prisma fields before writing to the database
-    const { timeSpentTracking, ticketId: _tid, scheduledAt, ...prismaData } = data as any;
+    const { timeSpentTracking, ticketId: _tid, scheduledAt, isArchived, archivedAt, closedBy, slaTimerActive, ...prismaData } = data as any;
     const timeSpentMin = timeSpentTracking !== undefined ? timeSpentTracking : data.timeSpentMin;
 
     const parsedScheduledAt = scheduledAt ? new Date(scheduledAt) : null;
+    
+    // Process Automation Flags
+    const isResolved = prismaData.status === 'RESOLVED';
+    const finalIsArchived = isArchived !== undefined ? isArchived : isResolved;
+    const finalArchivedAt = archivedAt !== undefined ? new Date(archivedAt) : (isResolved ? new Date() : null);
+    const finalSlaTimerActive = isResolved ? false : (slaTimerActive !== undefined ? slaTimerActive : true);
 
     try {
       const updated = await this.prisma.ticket.update({
         where: { id: ticket.id },
         data: {
           ...prismaData,
+          isArchived: finalIsArchived,
+          archivedAt: finalArchivedAt,
+          closedBy,
+          slaTimerActive: finalSlaTimerActive,
           ...(timeSpentMin !== undefined ? { timeSpentMin } : {}),
           ...(scheduledAt !== undefined ? { scheduledAt: parsedScheduledAt } : {}),
           slaDeadline,
@@ -379,6 +389,17 @@ export class TicketsService {
 
     const finalStatus = updateData.status || ticket.status;
     const finalSubStatus = updateData.subStatus !== undefined ? updateData.subStatus : ticket.subStatus;
+    
+    // Automation: stop SLA timers and archive if RESOLVED
+    if (finalStatus === 'RESOLVED') {
+      updateData.isArchived = true;
+      updateData.archivedAt = new Date();
+      updateData.slaTimerActive = false;
+    } else {
+      updateData.slaTimerActive = true;
+      updateData.isArchived = false;
+      updateData.archivedAt = null;
+    }
     
     const PAUSED_STATES = ['WAITING_FOR_APPROVAL', 'WAITING_FOR_VENDOR', 'WAITING_FOR_CUSTOMER', 'ON_HOLD'];
     const isPausedNow = PAUSED_STATES.includes(finalSubStatus) && finalStatus !== 'CLOSED';

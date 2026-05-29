@@ -28,6 +28,10 @@ export const MasterDataConfig: React.FC = () => {
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isAddStatusModalOpen, setIsAddStatusModalOpen] = useState(false);
+
+  const [newStatusLabel, setNewStatusLabel] = useState('');
+  const [newStatusDesc, setNewStatusDesc] = useState('');
 
 
   const { data: services = [], isLoading: loadingServices } = useQuery<ConfigItem[]>({
@@ -68,6 +72,14 @@ export const MasterDataConfig: React.FC = () => {
     queryKey: ['master-categories'],
     queryFn: async () => {
       const res = await api.get('/master-config/categories');
+      return res.data;
+    },
+  });
+
+  const { data: statuses = [] } = useQuery<any[]>({
+    queryKey: ['master-statuses'],
+    queryFn: async () => {
+      const res = await api.get('/master-config/statuses');
       return res.data;
     },
   });
@@ -155,6 +167,51 @@ export const MasterDataConfig: React.FC = () => {
     onError: (err: any) => {
       console.error("❌ [FRONTEND NETWORK ERROR] API communication failed:", err);
       const errMsg = err.response?.data?.message || 'Failed to add Category';
+      showToast(errMsg, 'error');
+    },
+  });
+
+  const createStatusMutation = useMutation({
+    mutationFn: async (data: { name: string; label: string; description?: string }) => {
+      return api.post('/master-config/statuses', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['master-statuses'] });
+      setNewStatusLabel('');
+      setNewStatusDesc('');
+      setIsAddStatusModalOpen(false);
+      showToast('Status added successfully', 'success');
+    },
+    onError: (err: any) => {
+      const errMsg = err.response?.data?.message || 'Failed to add Status';
+      showToast(errMsg, 'error');
+    },
+  });
+
+  const handleAddStatus = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStatusLabel.trim()) return;
+    const label = newStatusLabel.trim();
+    const name = label.toUpperCase().replace(/\s+/g, '_');
+    const description = newStatusDesc.trim() || undefined;
+
+    try {
+      await createStatusMutation.mutateAsync({ name, label, description });
+    } catch (netErr: any) {
+      console.error(netErr);
+    }
+  };
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: async (data: { id: string, isActive: boolean }) => {
+      return api.patch(`/master-config/statuses/${data.id}/toggle`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['master-statuses'] });
+      showToast('Status visibility updated successfully', 'success');
+    },
+    onError: (err: any) => {
+      const errMsg = err.response?.data?.message || 'Failed to toggle status';
       showToast(errMsg, 'error');
     },
   });
@@ -420,6 +477,51 @@ export const MasterDataConfig: React.FC = () => {
           </div>
         </div>
 
+        {/* STATUSES Panel */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm flex flex-col gap-4 border-l-4 border-l-purple-500">
+          <div className="flex justify-between items-center mb-2">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-black tracking-wider text-slate-800 uppercase">Statuses</h3>
+              <span className="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">
+                {statuses?.length || 0} Defined
+              </span>
+            </div>
+            <button 
+              onClick={() => setIsAddStatusModalOpen(true)}
+              className="bg-purple-50 text-purple-600 border border-purple-200/60 hover:bg-purple-100 font-bold text-[10px] tracking-wider uppercase px-2.5 py-1.5 rounded-xl transition-all"
+            >
+              + Add New Status
+            </button>
+          </div>
+
+          {/* Map List of Status Rows from DB */}
+          <div className="flex flex-col gap-3 max-h-[250px] overflow-y-auto pr-1">
+            {statuses?.map((status: any) => (
+              <div key={status.id} className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200/50">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800 uppercase">{status.label}</h4>
+                  {status.description && (
+                    <p className="text-[10px] font-medium text-slate-400 mt-0.5">{status.description}</p>
+                  )}
+                </div>
+                
+                {/* Dynamic Active/Disabled Toggle Controller */}
+                <button
+                  type="button"
+                  onClick={() => toggleStatusMutation.mutate({ id: status.id, isActive: !status.isActive })}
+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                    status.isActive ? 'bg-emerald-500' : 'bg-slate-300'
+                  }`}
+                >
+                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+                    status.isActive ? 'translate-x-4' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* SLA Registry Builder Panel */}
         <div className="theme-card-panel rounded-2xl p-6 flex flex-col h-full transition-colors duration-300">
           <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-white/5 pb-4 mb-6">
@@ -555,6 +657,57 @@ export const MasterDataConfig: React.FC = () => {
               <div className="pt-4 flex justify-end gap-4">
                 <button type="button" onClick={() => setIsCategoryModalOpen(false)} className="px-6 py-2.5 bg-slate-200 dark:bg-white/5 hover:bg-slate-300 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 font-mono text-xs font-bold uppercase rounded-xl transition-all tracking-widest">CANCEL</button>
                 <button type="submit" disabled={createCategoryMutation.isPending} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold uppercase rounded-xl shadow-lg transition-all tracking-widest disabled:opacity-50">SAVE</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Status Modal */}
+      {isAddStatusModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsAddStatusModalOpen(false)} />
+          <div className="relative bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Add New Status</h3>
+              <button onClick={() => setIsAddStatusModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">✕</button>
+            </div>
+            <form onSubmit={handleAddStatus} className="p-6 space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Status Title Label</label>
+                <input
+                  type="text"
+                  value={newStatusLabel}
+                  onChange={(e) => setNewStatusLabel(e.target.value)}
+                  className="w-full bg-white border border-slate-200 text-slate-900 placeholder-slate-400 rounded-xl p-3 text-sm focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
+                  placeholder="e.g., Escalated, Pending Review"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Status Subtitle Description (Optional)</label>
+                <textarea
+                  value={newStatusDesc}
+                  onChange={(e) => setNewStatusDesc(e.target.value)}
+                  className="w-full bg-white border border-slate-200 text-slate-900 placeholder-slate-400 rounded-xl p-3 text-sm min-h-[100px] resize-none focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
+                  placeholder="Describe what this status implies..."
+                />
+              </div>
+              <div className="pt-4 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAddStatusModalOpen(false)}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-[10px] uppercase rounded-xl transition-all tracking-widest"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createStatusMutation.isPending}
+                  className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-[10px] uppercase rounded-xl transition-all tracking-widest disabled:opacity-50"
+                >
+                  {createStatusMutation.isPending ? 'Saving...' : 'Save Status'}
+                </button>
               </div>
             </form>
           </div>
