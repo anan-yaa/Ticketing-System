@@ -36,7 +36,7 @@ function App() {
               
               <Route path="/settings" element={<ProfileSettings />} />
               <Route path="/settings/change-password" element={<ChangePassword />} />
-              <Route path="/admin/master-data/sla-ledger" element={<SlaMasterLedger />} />
+              <Route path="/admin/master-config/sla-ledger" element={<SlaMasterLedger />} />
             </Route>
           </Route>
           

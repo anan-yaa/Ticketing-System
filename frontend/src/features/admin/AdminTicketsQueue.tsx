@@ -146,13 +146,13 @@ export const AdminTicketsQueue: React.FC = () => {
 
   // Core Data Form State
   const [coreType, setCoreType] = useState('');
-  const [coreQueueId, setCoreQueueId] = useState('');
+
   const [coreStatus, setCoreStatus] = useState('OPEN');
   const [coreFirewallCategory, setCoreFirewallCategory] = useState('');
   const [coreSource, setCoreSource] = useState('PORTAL');
   const [coreIsScope, setCoreIsScope] = useState(true);
   const [coreCustomerName, setCoreCustomerName] = useState('');
-  const [coreServiceContract, setCoreServiceContract] = useState('');
+  const [selectedServiceGroup, setSelectedServiceGroup] = useState('');
   const [coreCriticality, setCoreCriticality] = useState('');
   const [corePriority, setCorePriority] = useState('LOW');
   const [coreTimeSpent, setCoreTimeSpent] = useState(0);
@@ -207,11 +207,13 @@ export const AdminTicketsQueue: React.FC = () => {
   //   },
   //   enabled: isCoreDataModalOpen,
   // });
-  // Fetch Master Data Services
-  const { data: masterServices = [] } = useQuery<any[]>({
-    queryKey: ['master-services'],
+
+
+  // Fetch Assignment Groups
+  const { data: assignmentGroups, isLoading: isLoadingGroups } = useQuery({
+    queryKey: ['masterAssignmentGroupsList'],
     queryFn: async () => {
-      const res = await api.get('/master-config/services?activeOnly=true');
+      const res = await api.get('/master-config/groups');
       return res.data;
     },
     enabled: isCoreDataModalOpen,
@@ -303,13 +305,12 @@ export const AdminTicketsQueue: React.FC = () => {
 
     const payload: any = {
       ticketType: coreType || undefined,
-      queueId: coreQueueId || undefined,
+      queueId: selectedServiceGroup || undefined,
       status: coreStatus || undefined,
       firewallCategory: coreFirewallCategory || undefined,
       ticketSource: coreSource || undefined,
       isScopeInScope: coreIsScope,
       customerName: coreCustomerName || undefined,
-      serviceContract: coreServiceContract || undefined,
       criticality: coreCriticality || undefined,
       priority: corePriority || undefined,
       timeSpentMin: parseInt(String(coreTimeSpent), 10) || 0,
@@ -324,13 +325,12 @@ export const AdminTicketsQueue: React.FC = () => {
   const openCoreDataForm = () => {
     if (!selectedTicket) return;
     setCoreType(selectedTicket.ticketType || '');
-    setCoreQueueId(selectedTicket.queueId || '');
     setCoreStatus(selectedTicket.status || 'OPEN');
     setCoreFirewallCategory(selectedTicket.firewallCategory || '');
     setCoreSource(selectedTicket.ticketSource || selectedTicket.source || 'PORTAL');
     setCoreIsScope(selectedTicket.isScopeInScope ?? true);
     setCoreCustomerName(selectedTicket.customerName || selectedTicket.customer?.name || '');
-    setCoreServiceContract(selectedTicket.serviceContract || '');
+    setSelectedServiceGroup(selectedTicket.queueId || selectedTicket.serviceContract || '');
     setCoreCriticality(selectedTicket.criticality || '');
     setCorePriority(selectedTicket.priority || 'LOW');
     setCoreTimeSpent(selectedTicket.timeSpentMin || 0);
@@ -675,7 +675,7 @@ export const AdminTicketsQueue: React.FC = () => {
       {/* SPLIT-PANE TICKET DETAILS VIEW MODAL */}
       {selectedTicket && (
         <div className="fixed inset-0 z-40 flex items-center justify-center p-4 md:p-8 bg-black/70 backdrop-blur-md">
-          <div className="relative bg-slate-900/90 border border-white/10 rounded-[2rem] w-full max-w-5xl h-[85vh] flex flex-col md:flex-row shadow-[0_20px_70px_rgba(0,0,0,0.8)] overflow-hidden animate-in zoom-in-95 duration-300">
+          <div className="relative bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-900 rounded-2xl w-full max-w-5xl h-[85vh] flex flex-col md:flex-row shadow-sm overflow-hidden animate-in zoom-in-95 duration-300">
             {/* Absolute Close Button in Top-Right Corner of Entire Main Panel */}
             <button
               onClick={() => setSelectedTicket(null)}
@@ -686,7 +686,7 @@ export const AdminTicketsQueue: React.FC = () => {
             </button>
 
             {/* Left Meta Details Pane — fixed at 70% */}
-            <div className="w-full md:w-[70%] md:max-w-[70%] md:shrink-0 bg-black/40 border-r border-white/5 p-8 flex flex-col overflow-y-auto">
+            <div className="w-full md:w-[70%] md:max-w-[70%] md:shrink-0 bg-white/50 dark:bg-black/40 border-r border-slate-200 dark:border-white/5 p-8 flex flex-col overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
                   <select
@@ -726,19 +726,19 @@ export const AdminTicketsQueue: React.FC = () => {
                         setToast({ message: 'Failed to update Status', type: 'error' });
                       }
                     }}
-                    className="bg-slate-900/80 border border-white/10 text-xs font-mono uppercase rounded-lg px-3 py-1 outline-none transition-all focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 cursor-pointer text-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.1)]"
+                    className="w-full max-w-[200px] bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-2.5 text-xs font-bold tracking-wider uppercase focus:outline-none transition-all duration-200"
                   >
-                    <option value="NONE" disabled>
+                    <option value="NONE" disabled className="text-slate-400 dark:text-slate-500">
                       {(!selectedTicket.ticketOwnerId && !(selectedTicket as any).assignedToId) ? 'ASSIGN STATE' : 'ASSIGN STATE'}
                     </option>
-                    <option value="WORK_IN_PROGRESS">WORK IN PROGRESS</option>
-                    <option value="WAITING_FOR_APPROVAL">WAITING FOR APPROVAL</option>
-                    <option value="WAITING_FOR_AGENT">WAITING FOR AGENT</option>
-                    <option value="WAITING_FOR_VENDOR">WAITING FOR VENDOR</option>
-                    <option value="WAITING_FOR_CUSTOMER">WAITING FOR CUSTOMER</option>
-                    <option value="ON_HOLD">ON HOLD</option>
-                    <option value="UNDER_OBSERVATION">UNDER OBSERVATION</option>
-                    <option value="RESOLVED">RESOLVED</option>
+                    <option value="WORK_IN_PROGRESS" className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold tracking-wide uppercase cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">Work In Progress</option>
+                    <option value="WAITING_FOR_APPROVAL" className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold tracking-wide uppercase cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">Waiting For Approval</option>
+                    <option value="WAITING_FOR_AGENT" className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold tracking-wide uppercase cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">Waiting For Agent</option>
+                    <option value="WAITING_FOR_VENDOR" className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold tracking-wide uppercase cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">Waiting for Vendor - Issue with Hardware/etc (Purchasing Team)</option>
+                    <option value="WAITING_FOR_CUSTOMER" className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold tracking-wide uppercase cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">Waiting for Customer - Details Requested</option>
+                    <option value="ON_HOLD" className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold tracking-wide uppercase cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">On Hold</option>
+                    <option value="UNDER_OBSERVATION" className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold tracking-wide uppercase cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">Under Observation</option>
+                    <option value="CLOSED" className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold tracking-wide uppercase cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">Closed - Archive</option>
                   </select>
 
                   <button
@@ -766,9 +766,9 @@ export const AdminTicketsQueue: React.FC = () => {
                 {selectedTicket.title}
               </h3>
 
-              <div className="bg-white/5 border border-white/5 rounded-xl p-4 flex-grow mb-6 max-h-48 overflow-y-auto">
+              <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl p-4 flex-grow mb-6 max-h-48 overflow-y-auto">
                 <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest block mb-2">Description</span>
-                <p className="text-slate-400 text-xs leading-relaxed whitespace-pre-wrap">{selectedTicket.description}</p>
+                <p className="text-slate-700 dark:text-slate-400 text-xs leading-relaxed whitespace-pre-wrap">{selectedTicket.description}</p>
               </div>
 
               <div className="space-y-3">
@@ -799,7 +799,7 @@ export const AdminTicketsQueue: React.FC = () => {
 
                 <div id="audit-log-print-zone" className="p-4 rounded-xl">
                   {(!selectedTicket.comments || selectedTicket.comments.length === 0) ? (
-                    <div className="h-full flex items-center justify-center text-slate-600 font-mono text-xs tracking-widest uppercase mb-6">
+                    <div className="h-full flex items-center justify-center text-center font-mono text-xs font-bold tracking-wider text-slate-400 dark:text-slate-500 py-12 uppercase mb-6">
                       No replies or logs on record
                     </div>
                   ) : (
@@ -887,22 +887,22 @@ export const AdminTicketsQueue: React.FC = () => {
             </div>
 
             {/* Right Comments Timeline Pane — fixed at 30% */}
-            <div className="w-full md:w-[30%] md:max-w-[30%] md:shrink-0 flex flex-col bg-slate-950/40 relative">
+            <div className="w-80 md:w-[30%] md:max-w-[30%] md:shrink-0 bg-slate-50 dark:bg-slate-900/40 border-l border-slate-200 dark:border-slate-800 flex flex-col gap-4 relative">
               <div className="flex-1 overflow-y-auto px-6 pt-12 pb-28 space-y-8">
 
                 {/* Display Core telemetry if populated */}
                 {selectedTicket.ticketType && (
-                  <div className="border-b border-white/5 pb-6 space-y-3">
-                    <span className="text-[10px] text-cyan-400 font-mono uppercase tracking-widest block font-bold">Telemetry Core Data</span>
-                    <div className="grid grid-cols-2 gap-4 pr-4 text-xs font-mono text-slate-300">
-                      <div className="p-4 flex flex-col justify-between h-20 bg-slate-900/50 border border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">TYPE</span> {selectedTicket.ticketType}</div>
-                      <div className="p-4 flex flex-col justify-between h-20 bg-slate-900/50 border border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">QUEUE</span> {selectedTicket.queueId || 'N/A'}</div>
-                      <div className="p-4 flex flex-col justify-between h-20 bg-slate-900/50 border border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">CATEGORIES</span> {selectedTicket.firewallCategory || 'N/A'}</div>
-                      <div className="p-4 flex flex-col justify-between h-20 bg-slate-900/50 border border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">CONTRACT</span> {selectedTicket.serviceContract || 'N/A'}</div>
-                      <div className="p-4 flex flex-col justify-between h-20 bg-slate-900/50 border border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">SCOPE</span> {selectedTicket.isScopeInScope ? 'IN-SCOPE' : 'OUT-OF-SCOPE'}</div>
-                      <div className="p-4 flex flex-col justify-between h-20 bg-slate-900/50 border border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">AFFECTED DEVICE</span> {selectedTicket.affectedDevice || 'N/A'}</div>
-                      <div className="p-4 flex flex-col justify-between h-20 bg-slate-900/50 border border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">DEVICE IP</span> {selectedTicket.deviceIp || 'N/A'}</div>
-                      <div className="p-4 flex flex-col justify-between h-20 bg-slate-900/50 border border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">OWNER</span> {selectedTicket.ticketOwner?.name || 'Unassigned'}</div>
+                  <div className="border-b border-slate-200 dark:border-white/5 pb-6 space-y-3">
+                    <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-mono uppercase tracking-widest block font-bold">Telemetry Core Data</span>
+                    <div className="grid grid-cols-2 gap-4 pr-4 text-xs font-mono text-slate-700 dark:text-slate-300">
+                      <div className="p-4 flex flex-col justify-between h-20 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">TYPE</span> {selectedTicket.ticketType}</div>
+                      <div className="p-4 flex flex-col justify-between h-20 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">QUEUE</span> {selectedTicket.queueId || 'N/A'}</div>
+                      <div className="p-4 flex flex-col justify-between h-20 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">CATEGORIES</span> {selectedTicket.firewallCategory || 'N/A'}</div>
+                      <div className="p-4 flex flex-col justify-between h-20 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">CONTRACT</span> {selectedTicket.serviceContract || 'N/A'}</div>
+                      <div className="p-4 flex flex-col justify-between h-20 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">SCOPE</span> {selectedTicket.isScopeInScope ? 'IN-SCOPE' : 'OUT-OF-SCOPE'}</div>
+                      <div className="p-4 flex flex-col justify-between h-20 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">AFFECTED DEVICE</span> {selectedTicket.affectedDevice || 'N/A'}</div>
+                      <div className="p-4 flex flex-col justify-between h-20 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">DEVICE IP</span> {selectedTicket.deviceIp || 'N/A'}</div>
+                      <div className="p-4 flex flex-col justify-between h-20 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 rounded-xl"><span className="text-slate-500 font-semibold block text-[10px] mb-1">OWNER</span> {selectedTicket.ticketOwner?.name || 'Unassigned'}</div>
                     </div>
                   </div>
                 )}
@@ -911,15 +911,15 @@ export const AdminTicketsQueue: React.FC = () => {
                 <SlaHealthTelemetry ticket={selectedTicket} />
 
                 {/* File Attachment Upload Block */}
-                <div className="bg-black/30 border border-white/5 rounded-2xl p-6 shadow-[0_4px_30px_rgba(0,0,0,0.3)] mt-6 backdrop-blur-md transition-all hover:bg-black/40">
-                  <h3 className="text-cyan-400 font-mono text-[10px] font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"></span>
+                <div className="bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/5 rounded-2xl p-6 shadow-[0_4px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_30px_rgba(0,0,0,0.3)] mt-6 backdrop-blur-md transition-all hover:bg-slate-200 dark:hover:bg-black/40">
+                  <h3 className="text-cyan-600 dark:text-cyan-400 font-mono text-[10px] font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 dark:bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.4)] dark:shadow-[0_0_10px_rgba(34,211,238,0.8)]"></span>
                     Attachment Upload
                   </h3>
 
                   <div
                     onClick={() => !isUploading && fileInputRef.current?.click()}
-                    className={`relative border-2 border-dashed ${isUploading ? 'border-white/5 bg-white/5 cursor-not-allowed' : 'border-white/10 hover:border-cyan-500/50 bg-slate-900/50 hover:bg-slate-900/80 cursor-pointer'} rounded-xl p-8 flex flex-col items-center justify-center transition-all group`}
+                    className={`relative border-2 border-dashed ${isUploading ? 'border-slate-300 bg-slate-200 dark:border-white/5 dark:bg-white/5 cursor-not-allowed' : 'border-slate-300 dark:border-white/10 hover:border-cyan-500/50 bg-white dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-900/80 cursor-pointer'} rounded-xl p-8 flex flex-col items-center justify-center transition-all group`}
                   >
                     <input
                       type="file"
@@ -930,18 +930,18 @@ export const AdminTicketsQueue: React.FC = () => {
 
                     {isUploading ? (
                       <div className="flex flex-col items-center justify-center space-y-3">
-                        <svg className="animate-spin h-6 w-6 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <svg className="animate-spin h-6 w-6 text-cyan-600 dark:text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <span className="text-[10px] text-cyan-300 font-mono uppercase tracking-widest animate-pulse">Transmitting Data...</span>
+                        <span className="text-[10px] text-cyan-700 dark:text-cyan-300 font-mono uppercase tracking-widest animate-pulse">Transmitting Data...</span>
                       </div>
                     ) : (
                       <>
-                        <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-3 group-hover:bg-cyan-500/10 group-hover:border-cyan-500/30 transition-all">
-                          <span className="text-slate-400 group-hover:text-cyan-400 text-lg">↑</span>
+                        <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-white/5 border border-slate-300 dark:border-white/10 flex items-center justify-center mb-3 group-hover:bg-cyan-100 dark:group-hover:bg-cyan-500/10 group-hover:border-cyan-300 dark:group-hover:border-cyan-500/30 transition-all">
+                          <span className="text-slate-500 dark:text-slate-400 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 text-lg">↑</span>
                         </div>
-                        <span className="text-xs font-mono text-slate-300 group-hover:text-white transition-colors">Click to add attachments</span>
+                        <span className="text-xs font-mono text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Click to add attachments</span>
                         <span className="text-[9px] font-mono text-slate-500 mt-2 uppercase tracking-widest">Logs or Visuals</span>
                       </>
                     )}
@@ -997,53 +997,54 @@ export const AdminTicketsQueue: React.FC = () => {
       {/* Create Ticket Modal */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-md p-4 transition-all duration-300 ease-out">
-          <div className="bg-slate-950 border border-white/10 rounded-3xl w-full max-w-lg shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white tracking-widest uppercase flex items-center gap-2">
+          <div className="w-full max-w-xl bg-white dark:bg-[#090d16] border border-slate-200 dark:border-white/5 rounded-2xl shadow-xl overflow-hidden transition-all duration-300 animate-in zoom-in-95">
+            <div className="px-8 py-6 border-b border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-widest uppercase flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"></span>
                 Create New Ticket
               </h2>
               <button
                 onClick={() => setIsCreateModalOpen(false)}
-                className="text-slate-500 hover:text-white transition-colors"
+                className="text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateSubmit} className="p-8 space-y-6">
-              <div>
-                <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Title</label>
+            <form onSubmit={handleCreateSubmit} className="flex flex-col">
+              <div className="max-h-[75vh] overflow-y-auto px-8 py-6 custom-scrollbar space-y-6">
+                <div>
+                <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Title</label>
                 <input
                   required
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all placeholder-slate-700 font-mono text-sm"
+                  className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
                   placeholder="Summarize the core request"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Description</label>
+                <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Description</label>
                 <textarea
                   required
                   rows={3}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all placeholder-slate-700 font-mono text-sm resize-none"
+                  className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all resize-none"
                   placeholder="Describe the full technical requirements..."
                 />
               </div>
 
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">PRIMARY DOMAIN</label>
+                  <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">PRIMARY DOMAIN</label>
                   <select
                     required
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all text-sm font-mono"
+                    className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
                   >
                     <option value="" disabled className="bg-slate-900">Select broad domain...</option>
                     <option value="General Support" className="bg-slate-900">General Support</option>
@@ -1054,11 +1055,11 @@ export const AdminTicketsQueue: React.FC = () => {
                 </div>
 
                 <div className="flex-1">
-                  <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Ticket Source</label>
+                  <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Ticket Source</label>
                   <select
                     value={source}
                     onChange={(e) => setSource(e.target.value)}
-                    className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all text-sm font-mono"
+                    className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
                   >
                     <option value="Email" className="bg-slate-900">Email</option>
                     <option value="Phone" className="bg-slate-900">Phone</option>
@@ -1068,7 +1069,7 @@ export const AdminTicketsQueue: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Search User ID, Name, or Email...</label>
+                <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Search User ID, Name, or Email...</label>
 
                 <div className="space-y-2">
                   <input
@@ -1076,14 +1077,14 @@ export const AdminTicketsQueue: React.FC = () => {
                     value={customerSearch}
                     onChange={(e) => setCustomerSearch(e.target.value)}
                     placeholder="Search User ID, Name, or Email..."
-                    className="w-full px-4 py-2 bg-black/20 border border-white/5 rounded-lg text-white font-mono text-xs uppercase tracking-wider outline-none focus:ring-1 focus:ring-cyan-500/30"
+                    className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
                   />
 
                   <select
                     required
                     value={selectedCustomerId}
                     onChange={(e) => setSelectedCustomerId(e.target.value)}
-                    className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all text-sm font-mono"
+                    className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
                   >
                     <option value="" disabled className="bg-slate-900 text-slate-500">
                       {isLoadingCustomers ? 'Loading matching accounts...' : 'Choose an user account'}
@@ -1106,10 +1107,10 @@ export const AdminTicketsQueue: React.FC = () => {
               </div>
 
               {/* Automation Parameters */}
-              <div className="pt-4 border-t border-white/5 mt-4 space-y-4">
+              <div className="pt-4 border-t border-slate-200 dark:border-white/5 mt-4 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold text-white tracking-widest uppercase flex items-center gap-2">
-                    <span className="text-cyan-400">⚙️</span> Schedule Ticket
+                  <h3 className="text-xs font-bold text-slate-800 dark:text-white tracking-widest uppercase flex items-center gap-2">
+                    <span className="text-cyan-500 dark:text-cyan-400">⚙️</span> Schedule Ticket
                   </h3>
                   <label className="flex items-center cursor-pointer">
                     <div className="relative">
@@ -1117,21 +1118,21 @@ export const AdminTicketsQueue: React.FC = () => {
                       <div className={`block w-10 h-6 rounded-full transition-colors ${isScheduled ? 'bg-cyan-500' : 'bg-slate-700'}`}></div>
                       <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${isScheduled ? 'transform translate-x-4' : ''}`}></div>
                     </div>
-                    <span className="ml-3 text-[10px] font-mono text-slate-400 uppercase tracking-widest">
+                    <span className="ml-3 text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                       Schedule this ticket?
                     </span>
                   </label>
                 </div>
 
                 {isScheduled && (
-                  <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in slide-in-from-top-2 duration-300">
+                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 space-y-4 animate-in slide-in-from-top-2 duration-300">
                     <div className="flex gap-4">
                       <div className="flex-1">
-                        <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Frequency</label>
+                        <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Frequency</label>
                         <select
                           value={scheduleFrequency}
                           onChange={(e) => setScheduleFrequency(e.target.value)}
-                          className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all text-sm font-mono"
+                          className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
                         >
                           <option value="Run Once" className="bg-slate-900">Run Once</option>
                           <option value="Recurring Maintenance Routine" className="bg-slate-900">Recurring Maintenance Routine</option>
@@ -1139,27 +1140,27 @@ export const AdminTicketsQueue: React.FC = () => {
                       </div>
 
                       <div className="flex-1">
-                        <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Target Execution Window</label>
+                        <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Target Execution Window</label>
                         <input
                           type="datetime-local"
                           required={isScheduled}
                           value={executeAt}
                           onChange={(e) => setExecuteAt(e.target.value)}
-                          className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all text-sm font-mono [color-scheme:dark]"
+                          className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all [color-scheme:light] dark:[color-scheme:dark]"
                         />
                       </div>
                     </div>
 
                     {scheduleFrequency === 'Recurring Maintenance Routine' && (
                       <div>
-                        <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Cron Pattern Interval</label>
+                        <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Cron Pattern Interval</label>
                         <input
                           type="text"
                           required={scheduleFrequency === 'Recurring Maintenance Routine'}
                           value={cronExpression}
                           onChange={(e) => setCronExpression(e.target.value)}
                           placeholder="0 6 * * 1"
-                          className="w-full px-4 py-2 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all text-sm font-mono"
+                          className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
                         />
                         <p className="text-[10px] text-slate-500 mt-1 font-mono uppercase">e.g., '0 6 * * 1' for weekly</p>
                       </div>
@@ -1168,11 +1169,13 @@ export const AdminTicketsQueue: React.FC = () => {
                 )}
               </div>
 
-              <div className="pt-4 flex gap-4 mt-8">
+              </div>
+              
+              <div className="px-8 py-4 border-t border-slate-200 dark:border-white/5 flex gap-4 bg-slate-50/50 dark:bg-white/5">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="flex-1 px-4 py-3 bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white font-bold uppercase tracking-widest text-xs rounded-xl transition-colors"
+                  className="flex-1 px-5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-sm hover:bg-slate-100 dark:hover:bg-slate-900 transition-all uppercase tracking-widest"
                 >
                   Cancel
                 </button>
@@ -1192,7 +1195,7 @@ export const AdminTicketsQueue: React.FC = () => {
       {/* Add Core Data Modal */}
       {isCoreDataModalOpen && selectedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-md p-4 overflow-y-auto transition-all duration-300 ease-out">
-          <div className="relative bg-slate-950 border border-white/10 rounded-3xl w-full max-w-4xl shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden my-8 animate-in zoom-in-95 duration-300">
+          <div className="relative w-full max-w-3xl bg-white dark:bg-[#090d16] border border-slate-200 dark:border-white/5 rounded-2xl shadow-xl overflow-hidden my-8 animate-in zoom-in-95 duration-300">
             {/* Absolute Close Button in Top-Right Corner */}
             <button
               onClick={() => setIsCoreDataModalOpen(false)}
@@ -1204,8 +1207,8 @@ export const AdminTicketsQueue: React.FC = () => {
               </svg>
             </button>
 
-            <div className="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center pr-16">
-              <h2 className="text-xl font-bold text-white tracking-widest uppercase flex items-center gap-2">
+            <div className="px-8 py-6 border-b border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 flex justify-between items-center pr-16">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-widest uppercase flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"></span>
                 Add Ticket Core Data
               </h2>
@@ -1213,18 +1216,17 @@ export const AdminTicketsQueue: React.FC = () => {
 
             <form onSubmit={handleCoreSubmit} className="p-8 space-y-8 max-h-[70vh] overflow-y-auto">
 
-              {/* PANEL 1: Classification */}
-              <div className="space-y-4 border border-white/5 bg-white/5 p-6 rounded-2xl">
-                <h3 className="text-xs font-mono text-cyan-400 uppercase tracking-widest font-bold border-b border-white/5 pb-2">
+              <div className="space-y-4 border border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 p-6 rounded-2xl">
+                <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-white/5 pb-2">
                   Panel 1: Classification
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                   <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-2 uppercase tracking-widest">Ticket Type</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Ticket Type</label>
                     <select
                       value={coreType}
                       onChange={(e) => setCoreType(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 text-white outline-none text-xs font-mono uppercase"
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all"
                     >
                       <option value="" className="bg-slate-900">Select Type</option>
                       <option value="Incident" className="bg-slate-900">Incident</option>
@@ -1239,11 +1241,11 @@ export const AdminTicketsQueue: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-2 uppercase tracking-widest">Status</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Status</label>
                     <select
                       value={coreStatus}
                       onChange={(e) => setCoreStatus(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 text-white outline-none text-xs font-mono uppercase"
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all"
                     >
                       <option value="OPEN" className="bg-slate-900">OPEN</option>
                       <option value="IN_PROGRESS" className="bg-slate-900">IN PROGRESS</option>
@@ -1251,11 +1253,11 @@ export const AdminTicketsQueue: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-2 uppercase tracking-widest">Categories</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Categories</label>
                     <select
                       value={coreFirewallCategory}
                       onChange={(e) => setCoreFirewallCategory(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 text-white outline-none text-xs font-mono uppercase"
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all"
                     >
                       <option value="" className="bg-slate-900">Select Category</option>
                       {masterCategories.map((c) => (
@@ -1266,11 +1268,11 @@ export const AdminTicketsQueue: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-2 uppercase tracking-widest">Source Channel</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Source Channel</label>
                     <select
                       value={coreSource}
                       onChange={(e) => setCoreSource(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 text-white outline-none text-xs font-mono uppercase"
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all"
                     >
                       <option value="Email" className="bg-slate-900">Email</option>
                       <option value="Phone" className="bg-slate-900">Phone</option>
@@ -1289,47 +1291,49 @@ export const AdminTicketsQueue: React.FC = () => {
                 </div>
               </div>
 
-              {/* PANEL 2: Assignment/SLA */}
-              <div className="space-y-4 border border-white/5 bg-white/5 p-6 rounded-2xl">
-                <h3 className="text-xs font-mono text-cyan-400 uppercase tracking-widest font-bold border-b border-white/5 pb-2">
+              <div className="space-y-4 border border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 p-6 rounded-2xl">
+                <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-white/5 pb-2">
                   Panel 2: Assignment/SLA
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                   <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-2 uppercase tracking-widest">User Name</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">User Name</label>
                     <input
                       type="text"
                       value={coreCustomerName}
                       onChange={(e) => setCoreCustomerName(e.target.value)}
                       placeholder="Organization or Individual name"
-                      className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 text-white outline-none font-mono text-xs uppercase"
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-2 uppercase tracking-widest">Service Contract ID</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">SERVICE GROUP</label>
                     <select
-                      value={coreServiceContract}
+                      value={selectedServiceGroup}
                       onChange={(e) => {
-                        setCoreServiceContract(e.target.value);
-                        setCoreQueueId('');
+                        setSelectedServiceGroup(e.target.value);
                       }}
-                      className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 text-white outline-none text-xs font-mono uppercase"
+                      disabled={isLoadingGroups}
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all font-semibold uppercase"
                     >
-                      <option value="" className="bg-slate-900">Select Contract</option>
-
-                      {masterServices.map((s) => (
-                        <option key={s.id} value={s.name} className="bg-slate-900">
-                          {s.name}
-                        </option>
-                      ))}
+                      <option value="">-- SELECT SERVICE GROUP --</option>
+                      {assignmentGroups
+                        ?.filter((group: any) => group.isActive)
+                        ?.sort((a: any, b: any) => a.name.localeCompare(b.name))
+                        ?.map((group: any) => (
+                          <option key={group.id} value={group.name} className="bg-slate-50 dark:bg-slate-900">
+                            {group.name.toUpperCase()}
+                          </option>
+                        ))
+                      }
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-2 uppercase tracking-widest">Criticality Rating</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Criticality Rating</label>
                     <select
                       value={coreCriticality}
                       onChange={(e) => setCoreCriticality(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 text-white outline-none text-xs font-mono uppercase"
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all"
                     >
                       <option value="" className="bg-slate-900">Select Criticality</option>
                       <option value="Low" className="bg-slate-900">Low</option>
@@ -1339,11 +1343,11 @@ export const AdminTicketsQueue: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-2 uppercase tracking-widest">Priority Threat Level</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Priority Threat Level</label>
                     <select
                       value={corePriority}
                       onChange={(e) => setCorePriority(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 text-white outline-none text-xs font-mono uppercase"
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all"
                     >
                       <option value="P4" className="bg-slate-900">P4 (Low / General Request)</option>
                       <option value="P3" className="bg-slate-900">P3 (Medium / Minor Degradation)</option>
@@ -1352,21 +1356,21 @@ export const AdminTicketsQueue: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-2 uppercase tracking-widest">Time Spent Tracking (Min)</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Time Spent Tracking (Min)</label>
                     <input
                       type="number"
                       min={0}
                       value={coreTimeSpent}
                       onChange={(e) => setCoreTimeSpent(Number(e.target.value))}
-                      className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 text-white outline-none font-mono text-xs uppercase"
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-2 uppercase tracking-widest">Select Ticket Owner (Engineer)</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Select Ticket Owner (Engineer)</label>
                     <select
                       value={coreOwnerId}
                       onChange={(e) => setCoreOwnerId(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 text-white outline-none text-xs font-mono"
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all"
                     >
                       <option value="" className="bg-slate-900 text-slate-500">Unassigned (Assign to Engineer)</option>
                       {owners.map((o: any) => (
@@ -1379,47 +1383,46 @@ export const AdminTicketsQueue: React.FC = () => {
                 </div>
               </div>
 
-              {/* PANEL 3: Endpoint Protection (EPO) */}
-              <div className="space-y-4 border border-white/5 bg-white/5 p-6 rounded-2xl">
-                <h3 className="text-xs font-mono text-cyan-400 uppercase tracking-widest font-bold border-b border-white/5 pb-2">
+              <div className="space-y-4 border border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 p-6 rounded-2xl">
+                <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-white/5 pb-2">
                   Panel 3: Endpoint Protection (EPO)
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                   <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-2 uppercase tracking-widest">Affected Device Hostname</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Affected Device Hostname</label>
                     <input
                       type="text"
                       value={coreDevice}
                       onChange={(e) => setCoreDevice(e.target.value)}
                       placeholder="e.g. WS-LPT-SEC09"
-                      className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 text-white outline-none font-mono text-xs uppercase"
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-2 uppercase tracking-widest">Affected IP Address</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Affected IP Address</label>
                     <input
                       type="text"
                       value={coreIp}
                       onChange={(e) => setCoreIp(e.target.value)}
                       placeholder="e.g. 192.168.1.100"
-                      className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:ring-1 focus:ring-cyan-500 text-white outline-none font-mono text-xs"
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="pt-4 flex gap-4 mt-8 items-center justify-end">
+              <div className="pt-4 border-t border-slate-200 dark:border-white/5 flex gap-4 mt-8 items-center justify-end">
                 <button
                   type="button"
                   onClick={() => setIsCoreDataModalOpen(false)}
-                  className="px-6 py-3 bg-transparent border-none text-slate-400 hover:text-slate-100 font-bold uppercase tracking-widest text-xs rounded-xl transition-colors"
+                  className="px-5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-sm hover:bg-slate-100 dark:hover:bg-slate-900 transition-all uppercase tracking-widest"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={updateCoreDataMutation.isPending}
-                  className="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:shadow-[0_0_30px_rgba(6,182,212,0.6)] uppercase tracking-widest text-xs disabled:opacity-50"
+                  className="px-5 py-2.5 bg-cyan-600/20 border border-cyan-500/50 hover:bg-cyan-500 text-cyan-700 dark:text-cyan-300 hover:text-white font-bold rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.2)] hover:shadow-[0_0_25px_rgba(6,182,212,0.6)] uppercase tracking-widest text-xs disabled:opacity-50"
                 >
                   {updateCoreDataMutation.isPending ? 'Processing..' : 'Save Core Data'}
                 </button>

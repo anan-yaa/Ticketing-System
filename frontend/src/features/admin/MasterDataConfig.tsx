@@ -309,7 +309,7 @@ export const MasterDataConfig: React.FC = () => {
           <div>
             <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-white/5 pb-4 mb-4">
               <h3 className="text-sm font-bold text-cyan-400 font-mono uppercase tracking-wider flex items-center gap-2">
-                <span>EPO Categories</span>
+                <span>Categories</span>
                 <span className="text-[10px] bg-cyan-500/15 text-cyan-300 px-2.5 py-0.5 rounded-full">
                   {categories.length} Defined
                 </span>
@@ -424,7 +424,7 @@ export const MasterDataConfig: React.FC = () => {
         <div className="theme-card-panel rounded-2xl p-6 flex flex-col h-full transition-colors duration-300">
           <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-white/5 pb-4 mb-6">
             <h3 className="text-sm font-bold theme-heading-text font-mono uppercase tracking-wider flex items-center gap-2">
-              <span>📑 SLA COMPLIANCE REGISTRY</span>
+              <span>SLA CONFIGURATION RULES</span>
             </h3>
             <button
               onClick={() => setIsSlaModalOpen(true)}
@@ -455,10 +455,11 @@ export const MasterDataConfig: React.FC = () => {
 
             <div className="pt-6 pb-2 flex justify-center">
               <button
-                onClick={() => navigate('/admin/master-data/sla-ledger')}
-                className="px-6 py-2.5 bg-slate-200/50 dark:bg-white/5 hover:bg-slate-300/50 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 font-mono text-[10px] font-bold uppercase rounded-xl transition-all tracking-widest flex items-center gap-2"
+                type="button"
+                onClick={() => navigate('/admin/master-config/sla-ledger')}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-all mx-auto mt-4"
               >
-                🔽 VIEW MORE RULES
+                <span>🔽 VIEW MORE RULES</span>
               </button>
             </div>
 

@@ -11,8 +11,8 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
   const [matrixTicketType, setMatrixTicketType] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  const { data: ticketTypes, isLoading: isTypesLoading } = useQuery({
-    queryKey: ['masterTicketTypes'],
+  const { data: ticketTypes, isLoading: isLoadingTypes } = useQuery({
+    queryKey: ['masterTicketTypesList'],
     queryFn: async () => {
       const res = await api.get('/master-config/types');
       return res.data;
@@ -28,11 +28,7 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
     isActive: boolean;
   }>>([{ tierName: 'P1', scopeDescription: '', responseTimeMin: 0, resolutionTimeHr: 0, isActive: true }]);
 
-  const updateCustomTier = (index: number, field: string, value: string | number) => {
-    const newTiers = [...customTiers];
-    newTiers[index] = { ...newTiers[index], [field]: value };
-    setCustomTiers(newTiers);
-  };
+
 
   const handleAddPriorityRow = () => {
     const nextIndex = customTiers.length + 1;
@@ -80,11 +76,13 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
               <select
                 value={matrixTicketType}
                 onChange={(e) => setMatrixTicketType(e.target.value)}
-                disabled={isTypesLoading}
-                className="w-full px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl focus:ring-1 focus:ring-indigo-500 theme-heading-text outline-none font-mono text-xs uppercase"
+                disabled={isLoadingTypes}
+                className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all font-semibold uppercase"
               >
-                <option value="">-- CHOOSE A TYPE --</option>
-                {ticketTypes
+                <option value="" className="text-slate-400">
+                  {isLoadingTypes ? 'Loading types from database...' : '-- CHOOSE A TYPE --'}
+                </option>
+                {ticketTypes && ticketTypes
                   ?.filter((type: any) => type.isActive)
                   ?.sort((a: any, b: any) => a.name.localeCompare(b.name))
                   ?.map((type: any) => (
@@ -130,10 +128,14 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
                     <input
                       type="text"
                       placeholder={`${tier.tierName} Scope Description`}
-                      value={tier.scopeDescription}
+                      value={tier.scopeDescription || ""}
                       disabled={!tier.isActive}
-                      onChange={(e) => updateCustomTier(index, 'scopeDescription', e.target.value)}
-                      className={`w-full px-3 py-2 bg-white/50 dark:bg-black/20 border border-${colors}-500/20 rounded-lg outline-none font-mono text-xs theme-heading-text focus:border-${colors}-400 mt-1 disabled:opacity-50`}
+                      onChange={(e) => {
+                        const updatedTiers = [...customTiers];
+                        updatedTiers[index].scopeDescription = e.target.value;
+                        setCustomTiers(updatedTiers);
+                      }}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 rounded-lg p-2.5 text-sm outline-none disabled:opacity-50 mt-1"
                     />
                   </div>
 
@@ -142,7 +144,18 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
                       <label className="text-[9px] text-slate-500 uppercase tracking-widest font-mono font-bold block">Response Target</label>
                       <div className="flex flex-col">
                         <span className="text-[8px] text-slate-400 uppercase tracking-wider mb-0.5">Mins</span>
-                        <input type="number" min="0" value={tier.responseTimeMin} disabled={!tier.isActive} onChange={(e) => updateCustomTier(index, 'responseTimeMin', parseInt(e.target.value) || 0)} className={`w-full px-2 py-1.5 bg-white/80 dark:bg-black/40 border border-${colors}-500/30 rounded focus:border-${colors}-400 outline-none font-mono text-xs theme-heading-text disabled:opacity-50`} />
+                        <input
+                          type="number"
+                          min="0"
+                          value={tier.responseTimeMin || 0}
+                          disabled={!tier.isActive}
+                          onChange={(e) => {
+                            const updatedTiers = [...customTiers];
+                            updatedTiers[index].responseTimeMin = Number(e.target.value);
+                            setCustomTiers(updatedTiers);
+                          }}
+                          className="w-20 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 rounded-lg p-2 text-sm text-center outline-none disabled:opacity-50"
+                        />
                       </div>
                     </div>
 
@@ -150,7 +163,18 @@ export const ConfigureSlaModal: React.FC<ConfigureSlaModalProps> = ({ onClose, o
                       <label className="text-[9px] text-slate-500 uppercase tracking-widest font-mono font-bold block">Resolution Target</label>
                       <div className="flex flex-col">
                         <span className="text-[8px] text-slate-400 uppercase tracking-wider mb-0.5">Hrs</span>
-                        <input type="number" min="0" value={tier.resolutionTimeHr} disabled={!tier.isActive} onChange={(e) => updateCustomTier(index, 'resolutionTimeHr', parseInt(e.target.value) || 0)} className={`w-full px-2 py-1.5 bg-white/80 dark:bg-black/40 border border-${colors}-500/30 rounded focus:border-${colors}-400 outline-none font-mono text-xs theme-heading-text disabled:opacity-50`} />
+                        <input
+                          type="number"
+                          min="0"
+                          value={tier.resolutionTimeHr || 0}
+                          disabled={!tier.isActive}
+                          onChange={(e) => {
+                            const updatedTiers = [...customTiers];
+                            updatedTiers[index].resolutionTimeHr = Number(e.target.value);
+                            setCustomTiers(updatedTiers);
+                          }}
+                          className="w-20 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 rounded-lg p-2 text-sm text-center outline-none disabled:opacity-50"
+                        />
                       </div>
                     </div>
 
