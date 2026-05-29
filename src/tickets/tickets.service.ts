@@ -329,7 +329,7 @@ export class TicketsService {
     }
 
     // Strip non-Prisma fields before writing to the database
-    const { timeSpentTracking, status, ticketId: _tid, scheduledAt, ...prismaData } = data as any;
+    const { timeSpentTracking, ticketId: _tid, scheduledAt, ...prismaData } = data as any;
     const timeSpentMin = timeSpentTracking !== undefined ? timeSpentTracking : data.timeSpentMin;
 
     const parsedScheduledAt = scheduledAt ? new Date(scheduledAt) : null;

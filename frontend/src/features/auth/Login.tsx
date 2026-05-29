@@ -56,37 +56,33 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black font-sans text-slate-200">
-      <div className="w-full max-w-md">
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-          <div className="mb-10 text-center">
-            <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 tracking-wider mb-2">
-              LOGIN
-            </h1>
-
-          </div>
+    <div className="min-h-screen w-full bg-[#f8fafc] dark:bg-[#030712] flex items-center justify-center p-4 transition-colors duration-300 relative overflow-hidden">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-8 shadow-[0_8px_40px_-6px_rgba(15,23,42,0.06)] backdrop-blur-md transition-all duration-300 flex flex-col gap-6">
+        <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight text-center uppercase">
+          LOGIN
+        </h1>
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
-              <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Email Address</label>
+              <label className="text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2 block">Email Address</label>
               <input
                 required
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all placeholder-slate-700 font-mono text-sm"
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-600 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500/60 transition-all duration-200 font-medium"
                 placeholder="user@system.net"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Password</label>
+              <label className="text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2 block">Password</label>
               <input
                 required
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all placeholder-slate-700 font-mono text-sm tracking-[0.2em]"
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-600 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500/60 transition-all duration-200 font-medium"
                 placeholder="••••••••"
               />
             </div>
@@ -101,7 +97,7 @@ export const Login: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-4 px-4 py-3.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:shadow-[0_0_30px_rgba(6,182,212,0.6)] transition-all transform hover:-translate-y-1 uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex justify-center items-center gap-2"
+              className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs tracking-wider uppercase py-3.5 px-4 rounded-xl shadow-md shadow-sky-600/10 hover:shadow-sky-500/20 transform hover:-translate-y-0.5 transition-all duration-200 mt-2 focus:outline-none flex justify-center items-center gap-2"
             >
               {loading ? (
                 <>
@@ -113,7 +109,6 @@ export const Login: React.FC = () => {
               )}
             </button>
           </form>
-        </div>
       </div>
     </div>
   );

@@ -24,6 +24,17 @@ const TICKET_TYPES = [
 
 const MASTER_GROUPS = ['RIMS', 'MI', 'DATA CENTER', 'DS', 'TSS', 'DATABASE', 'CLOUD'];
 
+const TICKET_STATUS_WORKFLOW = [
+  { value: "WORK_IN_PROGRESS", label: "Work In Progress" },
+  { value: "WAITING_FOR_APPROVAL", label: "Waiting For Approval" },
+  { value: "WAITING_FOR_AGENT", label: "Waiting For Agent" },
+  { value: "WAITING_FOR_VENDOR", label: "Waiting for Vendor" },
+  { value: "WAITING_FOR_CUSTOMER", label: "Waiting for Customer" },
+  { value: "ON_HOLD", label: "On Hold" },
+  { value: "UNDER_OBSERVATION", label: "Under Observation" },
+  { value: "RESOLVED", label: "Resolved" }
+];
+
 export const AdminTicketsQueue: React.FC = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -412,229 +423,142 @@ export const AdminTicketsQueue: React.FC = () => {
 
       {/* LEFT SERVICE-QUEUE FILTER RAIL (Sidebar) */}
       <div className="w-64 min-h-screen bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-900 p-6 flex flex-col gap-4 shrink-0">
-          {/* POSITION 1: MY QUEUE */}
-          <div>
-            <button
-              onClick={() => {
-                setWorkspace('myQueue');
-                setSelectedGroupFilter('ALL');
-              }}
-              className={workspace === 'myQueue'
-                ? "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-sky-500/10 text-sky-400 border border-sky-500/20"
-                : "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white transition-all duration-200"
-              }
-            >
-              <span className="flex-1 text-left">My Queue</span>
-              <span className="font-bold">
-                {myQueueTickets.length}
-              </span>
-            </button>
-          </div>
-
-          {/* POSITION 2: OPEN QUEUE ACCORDION */}
-          <div className="space-y-2">
-            <button
-              onClick={() => {
-                setWorkspace('openQueue');
-                setIsExpanded(!isExpanded);
-                if (workspace !== 'openQueue') setSelectedGroupFilter('ALL');
-              }}
-              className={workspace === 'openQueue'
-                ? "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-sky-500/10 text-sky-400 border border-sky-500/20 w-full"
-                : "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white transition-all duration-200 w-full"
-              }
-            >
-              <span className="flex-1 text-left">Open Queue</span>
-              <span className={`transform transition-transform duration-200 text-[10px] ${isExpanded ? 'rotate-90' : 'rotate-0'}`}>
-                ▼
-              </span>
-            </button>
-
-            {isExpanded && workspace === 'openQueue' && (
-              <div className="pl-2 space-y-4 pt-2">
-                {MASTER_GROUPS.map((serviceGroup) => {
-                  const subQueues = TICKET_TYPES.map((type, index) => {
-                    const count = tickets.filter(
-                      (t) => t.serviceContract === serviceGroup && t.ticketType === type && t.status !== 'CLOSED'
-                    ).length;
-                    const code = `${serviceGroup}-${String(index + 1).padStart(3, '0')}`;
-                    const filterName = `${serviceGroup}::${type}`;
-                    return { label: type, code, filterName, count };
-                  }).filter((sq) => sq.count >= 1);
-
-                  if (subQueues.length === 0) return null;
-
-                  return (
-                    <div key={serviceGroup} className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                      <h4 className="text-[9px] font-mono text-slate-500 uppercase tracking-widest font-semibold px-2">
-                        ── {serviceGroup} QUEUES ──
-                      </h4>
-                      <div className="space-y-1">
-                        {subQueues.map((q) => {
-                          const isActive = selectedGroupFilter === q.filterName;
-                          return (
-                            <button
-                              key={q.code}
-                              onClick={() => setSelectedGroupFilter(q.filterName)}
-                              className={`w-full text-left px-4 py-2 rounded-xl text-xs font-mono transition-all duration-200 uppercase border flex items-center justify-between ${isActive
-                                ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/25 shadow-[0_0_15px_rgba(6,182,212,0.15)] font-bold'
-                                : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                                }`}
-                            >
-                              <div className="flex items-center">
-                                <span className="inline-block text-cyan-600/70 font-mono text-[10px] mr-2 tracking-wider">
-                                  [{q.code}]
-                                </span>
-                                <span className="truncate max-w-[120px]" title={q.label}>{q.label}</span>
-                              </div>
-                              <span className="font-bold text-slate-300">({q.count})</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* POSITION 3: CLOSED ARCHIVE */}
-          <div className="pt-4 border-t border-white/5">
-            <button
-              onClick={() => {
-                setWorkspace('closedArchive');
-                setSelectedGroupFilter('ALL');
-              }}
-              className={workspace === 'closedArchive'
-                ? "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-sky-500/10 text-sky-400 border border-sky-500/20"
-                : "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:bg-white/5 hover:text-white transition-all duration-200"
-              }
-            >
-              <span className="flex-1 text-left">Closed Archive</span>
-              <span className="font-bold">{closedArchiveTickets.length}</span>
-            </button>
-          </div>
+        {/* POSITION 1: MY QUEUE */}
+        <div>
+          <button
+            onClick={() => {
+              setWorkspace('myQueue');
+              setSelectedGroupFilter('ALL');
+            }}
+            className={workspace === 'myQueue'
+              ? "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-sky-500/10 text-sky-400 border border-sky-500/20"
+              : "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white transition-all duration-200"
+            }
+          >
+            <span className="flex-1 text-left">My Queue</span>
+            <span className="font-bold">
+              {myQueueTickets.length}
+            </span>
+          </button>
         </div>
 
-        {/* RIGHT CONTENT WORKSPACE */}
-        <div className="flex-1 p-8 overflow-y-auto">
-          {/* Action Header */}
-          <div className="flex justify-end items-center mb-6">
-            <PermissionGate allowedPermissions={['TICKET_CREATE_AS_ADMIN']}>
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl shadow-lg shadow-sky-600/10 hover:shadow-sky-500/20 transform hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2"
-              >
-                + CREATE TICKET
-              </button>
-            </PermissionGate>
-          </div>
-          {isLoadingTickets ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-20 bg-white/5 rounded-2xl animate-pulse border border-white/10" />
-              ))}
-            </div>
-          ) : isErrorTickets ? (
-            <div className="h-full flex items-center justify-center text-rose-400 font-mono tracking-widest text-center py-12">
-              ERROR FETCHING QUEUE CHANNELS
-            </div>
-          ) : workspace === 'myQueue' ? (
-            <div className="space-y-4">
-              {myQueueTickets.length === 0 ? (
-                <div className="text-center text-slate-500 uppercase font-mono py-8">
-                  No active tickets inside this channel
-                </div>
-              ) : (
-                myQueueTickets.map((t) => (
-                  <div
-                    key={t.id}
-                    onClick={() => setSelectedTicket(t)}
-                    className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/60 rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)] dark:shadow-none transition-all duration-300 mb-5 flex flex-col gap-3 relative overflow-hidden cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-bold font-mono text-slate-400 tracking-wider">#{t.id.slice(0, 8).toUpperCase()}</span>
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border uppercase ${t.status === 'OPEN' ? 'bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-100 dark:border-sky-500/20' : t.status === 'IN_PROGRESS' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/20' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-700'}`}>
-                        {t.status}
-                      </span>
-                      <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-slate-700 uppercase">
-                        {t.priority || 'LOW PRIORITY'}
-                      </span>
-                    </div>
-                    
-                    <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight group-hover:text-sky-600 dark:group-hover:text-cyan-400 transition-colors mt-1">{t.title}</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">{t.description}</p>
+        {/* POSITION 2: OPEN QUEUE ACCORDION */}
+        <div className="space-y-2">
+          <button
+            onClick={() => {
+              setWorkspace('openQueue');
+              setIsExpanded(!isExpanded);
+              if (workspace !== 'openQueue') setSelectedGroupFilter('ALL');
+            }}
+            className={workspace === 'openQueue'
+              ? "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-sky-500/10 text-sky-400 border border-sky-500/20 w-full"
+              : "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white transition-all duration-200 w-full"
+            }
+          >
+            <span className="flex-1 text-left">Open Queue</span>
+            <span className={`transform transition-transform duration-200 text-[10px] ${isExpanded ? 'rotate-90' : 'rotate-0'}`}>
+              ▼
+            </span>
+          </button>
 
-                    <div className="mt-2 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-x-6 gap-y-2">
-                      <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">CUSTOMER:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.customer?.name || t.customer?.email || 'N/A'}</span></div>
-                      <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">CATEGORY:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.category || 'General'}</span></div>
-                      {t.ticketType && (
-                        <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">TYPE:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.ticketType}</span></div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">SLA DEADLINE:</span> 
-                        <span className="text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-100/50 dark:border-rose-500/20 font-mono text-xs font-semibold inline-flex items-center">
-                          {new Date(t.slaDeadline).toLocaleString()}
-                        </span>
-                      </div>
+          {isExpanded && workspace === 'openQueue' && (
+            <div className="pl-2 space-y-4 pt-2">
+              {MASTER_GROUPS.map((serviceGroup) => {
+                const subQueues = TICKET_TYPES.map((type, index) => {
+                  const count = tickets.filter(
+                    (t) => t.serviceContract === serviceGroup && t.ticketType === type && t.status !== 'CLOSED'
+                  ).length;
+                  const code = `${serviceGroup}-${String(index + 1).padStart(3, '0')}`;
+                  const filterName = `${serviceGroup}::${type}`;
+                  return { label: type, code, filterName, count };
+                }).filter((sq) => sq.count >= 1);
+
+                if (subQueues.length === 0) return null;
+
+                return (
+                  <div key={serviceGroup} className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <h4 className="text-[9px] font-mono text-slate-500 uppercase tracking-widest font-semibold px-2">
+                      ── {serviceGroup} QUEUES ──
+                    </h4>
+                    <div className="space-y-1">
+                      {subQueues.map((q) => {
+                        const isActive = selectedGroupFilter === q.filterName;
+                        return (
+                          <button
+                            key={q.code}
+                            onClick={() => setSelectedGroupFilter(q.filterName)}
+                            className={`w-full text-left px-4 py-2 rounded-xl text-xs font-mono transition-all duration-200 uppercase border flex items-center justify-between ${isActive
+                              ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/25 shadow-[0_0_15px_rgba(6,182,212,0.15)] font-bold'
+                              : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                              }`}
+                          >
+                            <div className="flex items-center">
+                              <span className="inline-block text-cyan-600/70 font-mono text-[10px] mr-2 tracking-wider">
+                                [{q.code}]
+                              </span>
+                              <span className="truncate max-w-[120px]" title={q.label}>{q.label}</span>
+                            </div>
+                            <span className="font-bold text-slate-300">({q.count})</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                ))
-              )}
+                );
+              })}
             </div>
-          ) : workspace === 'closedArchive' ? (
-            <div className="space-y-4">
-              {closedArchiveTickets.length === 0 ? (
-                <div className="text-center text-slate-500 uppercase font-mono py-8">
-                  No closed tickets in historical archive
-                </div>
-              ) : (
-                closedArchiveTickets.map((t) => {
-                  const isBreached = t.isSlaBreached ?? (t.closedAt ? new Date(t.closedAt) > new Date(t.slaDeadline) : new Date() > new Date(t.slaDeadline));
-                  return (
-                    <div
-                      key={t.id}
-                      onClick={() => setSelectedTicket(t)}
-                      className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/60 rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)] dark:shadow-none transition-all duration-300 mb-5 flex flex-col gap-3 relative overflow-hidden cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold font-mono text-slate-400 tracking-wider">#{t.id.slice(0, 8).toUpperCase()}</span>
-                        <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border uppercase ${t.status === 'OPEN' ? 'bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-100 dark:border-sky-500/20' : t.status === 'IN_PROGRESS' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/20' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-700'}`}>
-                          {t.status}
-                        </span>
-                        <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-slate-700 uppercase">
-                          {t.priority || 'LOW PRIORITY'}
-                        </span>
-                        <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border uppercase ml-auto ${!isBreached ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20'}`}>
-                          {!isBreached ? 'SLA COMPLIANT' : 'SLA BREACHED'}
-                        </span>
-                      </div>
-                      
-                      <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight group-hover:text-sky-600 dark:group-hover:text-cyan-400 transition-colors mt-1">{t.title}</h3>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">{t.description}</p>
+          )}
+        </div>
 
-                      <div className="mt-2 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-x-6 gap-y-2">
-                        <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">CUSTOMER:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.customer?.name || t.customer?.email || 'N/A'}</span></div>
-                        <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">CATEGORY:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.category || 'General'}</span></div>
-                        {t.ticketType && (
-                          <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">TYPE:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.ticketType}</span></div>
-                        )}
-                        <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">CLOSED AT:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.closedAt ? new Date(t.closedAt).toLocaleString() : 'N/A'}</span></div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          ) : displayedTickets.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-slate-500 py-12">
-              <div className="text-sm font-mono tracking-widest uppercase mb-2">No active tickets inside this channel</div>
-              <div className="text-xs text-slate-600 font-mono uppercase">Queue status clears successfully</div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {displayedTickets.map((t) => (
+        {/* POSITION 3: CLOSED ARCHIVE */}
+        <div className="pt-4 border-t border-white/5">
+          <button
+            onClick={() => {
+              setWorkspace('closedArchive');
+              setSelectedGroupFilter('ALL');
+            }}
+            className={workspace === 'closedArchive'
+              ? "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-sky-500/10 text-sky-400 border border-sky-500/20"
+              : "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:bg-white/5 hover:text-white transition-all duration-200"
+            }
+          >
+            <span className="flex-1 text-left">Closed Archive</span>
+            <span className="font-bold">{closedArchiveTickets.length}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* RIGHT CONTENT WORKSPACE */}
+      <div className="flex-1 p-8 overflow-y-auto">
+        {/* Action Header */}
+        <div className="flex justify-end items-center mb-6">
+          <PermissionGate allowedPermissions={['TICKET_CREATE_AS_ADMIN']}>
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl shadow-lg shadow-sky-600/10 hover:shadow-sky-500/20 transform hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2"
+            >
+              + CREATE TICKET
+            </button>
+          </PermissionGate>
+        </div>
+        {isLoadingTickets ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-20 bg-white/5 rounded-2xl animate-pulse border border-white/10" />
+            ))}
+          </div>
+        ) : isErrorTickets ? (
+          <div className="h-full flex items-center justify-center text-rose-400 font-mono tracking-widest text-center py-12">
+            ERROR FETCHING QUEUE CHANNELS
+          </div>
+        ) : workspace === 'myQueue' ? (
+          <div className="space-y-4">
+            {myQueueTickets.length === 0 ? (
+              <div className="text-center text-slate-500 uppercase font-mono py-8">
+                No active tickets inside this channel
+              </div>
+            ) : (
+              myQueueTickets.map((t) => (
                 <div
                   key={t.id}
                   onClick={() => setSelectedTicket(t)}
@@ -649,7 +573,7 @@ export const AdminTicketsQueue: React.FC = () => {
                       {t.priority || 'LOW PRIORITY'}
                     </span>
                   </div>
-                  
+
                   <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight group-hover:text-sky-600 dark:group-hover:text-cyan-400 transition-colors mt-1">{t.title}</h3>
                   <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">{t.description}</p>
 
@@ -660,17 +584,104 @@ export const AdminTicketsQueue: React.FC = () => {
                       <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">TYPE:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.ticketType}</span></div>
                     )}
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">SLA DEADLINE:</span> 
+                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">SLA DEADLINE:</span>
                       <span className="text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-100/50 dark:border-rose-500/20 font-mono text-xs font-semibold inline-flex items-center">
                         {new Date(t.slaDeadline).toLocaleString()}
                       </span>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              ))
+            )}
+          </div>
+        ) : workspace === 'closedArchive' ? (
+          <div className="space-y-4">
+            {closedArchiveTickets.length === 0 ? (
+              <div className="text-center text-slate-500 uppercase font-mono py-8">
+                No closed tickets in historical archive
+              </div>
+            ) : (
+              closedArchiveTickets.map((t) => {
+                const isBreached = t.isSlaBreached ?? (t.closedAt ? new Date(t.closedAt) > new Date(t.slaDeadline) : new Date() > new Date(t.slaDeadline));
+                return (
+                  <div
+                    key={t.id}
+                    onClick={() => setSelectedTicket(t)}
+                    className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/60 rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)] dark:shadow-none transition-all duration-300 mb-5 flex flex-col gap-3 relative overflow-hidden cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold font-mono text-slate-400 tracking-wider">#{t.id.slice(0, 8).toUpperCase()}</span>
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border uppercase ${t.status === 'OPEN' ? 'bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-100 dark:border-sky-500/20' : t.status === 'IN_PROGRESS' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/20' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-700'}`}>
+                        {t.status}
+                      </span>
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-slate-700 uppercase">
+                        {t.priority || 'LOW PRIORITY'}
+                      </span>
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border uppercase ml-auto ${!isBreached ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20'}`}>
+                        {!isBreached ? 'SLA COMPLIANT' : 'SLA BREACHED'}
+                      </span>
+                    </div>
+
+                    <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight group-hover:text-sky-600 dark:group-hover:text-cyan-400 transition-colors mt-1">{t.title}</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">{t.description}</p>
+
+                    <div className="mt-2 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-x-6 gap-y-2">
+                      <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">CUSTOMER:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.customer?.name || t.customer?.email || 'N/A'}</span></div>
+                      <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">CATEGORY:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.category || 'General'}</span></div>
+                      {t.ticketType && (
+                        <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">TYPE:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.ticketType}</span></div>
+                      )}
+                      <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">CLOSED AT:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.closedAt ? new Date(t.closedAt).toLocaleString() : 'N/A'}</span></div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        ) : displayedTickets.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-slate-500 py-12">
+            <div className="text-sm font-mono tracking-widest uppercase mb-2">No active tickets inside this channel</div>
+            <div className="text-xs text-slate-600 font-mono uppercase">Queue status clears successfully</div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {displayedTickets.map((t) => (
+              <div
+                key={t.id}
+                onClick={() => setSelectedTicket(t)}
+                className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/60 rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)] dark:shadow-none transition-all duration-300 mb-5 flex flex-col gap-3 relative overflow-hidden cursor-pointer group"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold font-mono text-slate-400 tracking-wider">#{t.id.slice(0, 8).toUpperCase()}</span>
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border uppercase ${t.status === 'OPEN' ? 'bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-100 dark:border-sky-500/20' : t.status === 'IN_PROGRESS' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/20' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-700'}`}>
+                    {t.status}
+                  </span>
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-slate-700 uppercase">
+                    {t.priority || 'LOW PRIORITY'}
+                  </span>
+                </div>
+
+                <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight group-hover:text-sky-600 dark:group-hover:text-cyan-400 transition-colors mt-1">{t.title}</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">{t.description}</p>
+
+                <div className="mt-2 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-x-6 gap-y-2">
+                  <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">CUSTOMER:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.customer?.name || t.customer?.email || 'N/A'}</span></div>
+                  <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">CATEGORY:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.category || 'General'}</span></div>
+                  {t.ticketType && (
+                    <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">TYPE:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.ticketType}</span></div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">SLA DEADLINE:</span>
+                    <span className="text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-100/50 dark:border-rose-500/20 font-mono text-xs font-semibold inline-flex items-center">
+                      {new Date(t.slaDeadline).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* SPLIT-PANE TICKET DETAILS VIEW MODAL */}
       {selectedTicket && (
@@ -701,25 +712,25 @@ export const AdminTicketsQueue: React.FC = () => {
                           assignedToId: user?.id,
                           ticketOwnerId: user?.id
                         };
-                        
+
                         if (selectedVal === 'RESOLVED') {
-                           payload = {
-                             status: 'CLOSED',
-                             subStatus: 'NONE', // RESOLVED is not a valid Prisma SubStatus enum
-                             assignedToId: user?.id,
-                             ticketOwnerId: user?.id,
-                             closedAt: new Date().toISOString()
-                           };
+                          payload = {
+                            status: 'CLOSED',
+                            subStatus: 'NONE', // RESOLVED is not a valid Prisma SubStatus enum
+                            assignedToId: user?.id,
+                            ticketOwnerId: user?.id,
+                            closedAt: new Date().toISOString()
+                          };
                         }
 
                         const res = await api.patch(`/tickets/${selectedTicket.id}/status`, payload);
-                        
+
                         if (selectedVal === 'RESOLVED') {
                           setSelectedTicket(null);
                         } else {
                           setSelectedTicket(res.data);
                         }
-                        
+
                         queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
                         setToast({ message: selectedVal === 'RESOLVED' ? 'Ticket successfully resolved and archived' : `Status updated to ${selectedVal.replace(/_/g, ' ')}`, type: 'success' });
                       } catch (err) {
@@ -1014,163 +1025,163 @@ export const AdminTicketsQueue: React.FC = () => {
             <form onSubmit={handleCreateSubmit} className="flex flex-col">
               <div className="max-h-[75vh] overflow-y-auto px-8 py-6 custom-scrollbar space-y-6">
                 <div>
-                <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Title</label>
-                <input
-                  required
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
-                  placeholder="Summarize the core request"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Description</label>
-                <textarea
-                  required
-                  rows={3}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all resize-none"
-                  placeholder="Describe the full technical requirements..."
-                />
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">PRIMARY DOMAIN</label>
-                  <select
-                    required
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
-                  >
-                    <option value="" disabled className="bg-slate-900">Select broad domain...</option>
-                    <option value="General Support" className="bg-slate-900">General Support</option>
-                    <option value="Network & Security" className="bg-slate-900">Network & Security</option>
-                    <option value="Hardware & Endpoints" className="bg-slate-900">Hardware & Endpoints</option>
-                    <option value="Software & Access" className="bg-slate-900">Software & Access</option>
-                  </select>
-                </div>
-
-                <div className="flex-1">
-                  <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Ticket Source</label>
-                  <select
-                    value={source}
-                    onChange={(e) => setSource(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
-                  >
-                    <option value="Email" className="bg-slate-900">Email</option>
-                    <option value="Phone" className="bg-slate-900">Phone</option>
-                    <option value="Portal" className="bg-slate-900">Portal</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Search User ID, Name, or Email...</label>
-
-                <div className="space-y-2">
+                  <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Title</label>
                   <input
-                    type="text"
-                    value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
-                    placeholder="Search User ID, Name, or Email..."
-                    className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
-                  />
-
-                  <select
                     required
-                    value={selectedCustomerId}
-                    onChange={(e) => setSelectedCustomerId(e.target.value)}
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
-                  >
-                    <option value="" disabled className="bg-slate-900 text-slate-500">
-                      {isLoadingCustomers ? 'Loading matching accounts...' : 'Choose an user account'}
-                    </option>
-                    {customers.map((c: any) => {
-                      const custId = c.customerId || c.id.substring(0, 8).toUpperCase();
-                      return (
-                        <option key={c.id} value={c.id} className="bg-slate-900 font-mono text-xs">
-                          [{custId}] {c.name} ({c.email})
-                        </option>
-                      );
-                    })}
-                    {!isLoadingCustomers && customers.length === 0 && (
-                      <option disabled className="bg-slate-900 text-rose-400">
-                        NO REGISTERED CUSTOMER ACCOUNTS FOUND
-                      </option>
-                    )}
-                  </select>
-                </div>
-              </div>
-
-              {/* Automation Parameters */}
-              <div className="pt-4 border-t border-slate-200 dark:border-white/5 mt-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold text-slate-800 dark:text-white tracking-widest uppercase flex items-center gap-2">
-                    <span className="text-cyan-500 dark:text-cyan-400">⚙️</span> Schedule Ticket
-                  </h3>
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input type="checkbox" className="sr-only" checked={isScheduled} onChange={(e) => setIsScheduled(e.target.checked)} />
-                      <div className={`block w-10 h-6 rounded-full transition-colors ${isScheduled ? 'bg-cyan-500' : 'bg-slate-700'}`}></div>
-                      <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${isScheduled ? 'transform translate-x-4' : ''}`}></div>
-                    </div>
-                    <span className="ml-3 text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                      Schedule this ticket?
-                    </span>
-                  </label>
+                    placeholder="Summarize the core request"
+                  />
                 </div>
 
-                {isScheduled && (
-                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 space-y-4 animate-in slide-in-from-top-2 duration-300">
-                    <div className="flex gap-4">
-                      <div className="flex-1">
-                        <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Frequency</label>
-                        <select
-                          value={scheduleFrequency}
-                          onChange={(e) => setScheduleFrequency(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
-                        >
-                          <option value="Run Once" className="bg-slate-900">Run Once</option>
-                          <option value="Recurring Maintenance Routine" className="bg-slate-900">Recurring Maintenance Routine</option>
-                        </select>
-                      </div>
+                <div>
+                  <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Description</label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all resize-none"
+                    placeholder="Describe the full technical requirements..."
+                  />
+                </div>
 
-                      <div className="flex-1">
-                        <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Target Execution Window</label>
-                        <input
-                          type="datetime-local"
-                          required={isScheduled}
-                          value={executeAt}
-                          onChange={(e) => setExecuteAt(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all [color-scheme:light] dark:[color-scheme:dark]"
-                        />
-                      </div>
-                    </div>
-
-                    {scheduleFrequency === 'Recurring Maintenance Routine' && (
-                      <div>
-                        <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Cron Pattern Interval</label>
-                        <input
-                          type="text"
-                          required={scheduleFrequency === 'Recurring Maintenance Routine'}
-                          value={cronExpression}
-                          onChange={(e) => setCronExpression(e.target.value)}
-                          placeholder="0 6 * * 1"
-                          className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
-                        />
-                        <p className="text-[10px] text-slate-500 mt-1 font-mono uppercase">e.g., '0 6 * * 1' for weekly</p>
-                      </div>
-                    )}
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">PRIMARY DOMAIN</label>
+                    <select
+                      required
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
+                    >
+                      <option value="" disabled className="bg-slate-900">Select broad domain...</option>
+                      <option value="General Support" className="bg-slate-900">General Support</option>
+                      <option value="Network & Security" className="bg-slate-900">Network & Security</option>
+                      <option value="Hardware & Endpoints" className="bg-slate-900">Hardware & Endpoints</option>
+                      <option value="Software & Access" className="bg-slate-900">Software & Access</option>
+                    </select>
                   </div>
-                )}
-              </div>
+
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Ticket Source</label>
+                    <select
+                      value={source}
+                      onChange={(e) => setSource(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
+                    >
+                      <option value="Email" className="bg-slate-900">Email</option>
+                      <option value="Phone" className="bg-slate-900">Phone</option>
+                      <option value="Portal" className="bg-slate-900">Portal</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Search User ID, Name, or Email...</label>
+
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={customerSearch}
+                      onChange={(e) => setCustomerSearch(e.target.value)}
+                      placeholder="Search User ID, Name, or Email..."
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
+                    />
+
+                    <select
+                      required
+                      value={selectedCustomerId}
+                      onChange={(e) => setSelectedCustomerId(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
+                    >
+                      <option value="" disabled className="bg-slate-900 text-slate-500">
+                        {isLoadingCustomers ? 'Loading matching accounts...' : 'Choose an user account'}
+                      </option>
+                      {customers.map((c: any) => {
+                        const custId = c.customerId || c.id.substring(0, 8).toUpperCase();
+                        return (
+                          <option key={c.id} value={c.id} className="bg-slate-900 font-mono text-xs">
+                            [{custId}] {c.name} ({c.email})
+                          </option>
+                        );
+                      })}
+                      {!isLoadingCustomers && customers.length === 0 && (
+                        <option disabled className="bg-slate-900 text-rose-400">
+                          NO REGISTERED CUSTOMER ACCOUNTS FOUND
+                        </option>
+                      )}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Automation Parameters */}
+                <div className="pt-4 border-t border-slate-200 dark:border-white/5 mt-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold text-slate-800 dark:text-white tracking-widest uppercase flex items-center gap-2">
+                      <span className="text-cyan-500 dark:text-cyan-400">⚙️</span> Schedule Ticket
+                    </h3>
+                    <label className="flex items-center cursor-pointer">
+                      <div className="relative">
+                        <input type="checkbox" className="sr-only" checked={isScheduled} onChange={(e) => setIsScheduled(e.target.checked)} />
+                        <div className={`block w-10 h-6 rounded-full transition-colors ${isScheduled ? 'bg-cyan-500' : 'bg-slate-700'}`}></div>
+                        <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${isScheduled ? 'transform translate-x-4' : ''}`}></div>
+                      </div>
+                      <span className="ml-3 text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                        Schedule this ticket?
+                      </span>
+                    </label>
+                  </div>
+
+                  {isScheduled && (
+                    <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 space-y-4 animate-in slide-in-from-top-2 duration-300">
+                      <div className="flex gap-4">
+                        <div className="flex-1">
+                          <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Frequency</label>
+                          <select
+                            value={scheduleFrequency}
+                            onChange={(e) => setScheduleFrequency(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
+                          >
+                            <option value="Run Once" className="bg-slate-900">Run Once</option>
+                            <option value="Recurring Maintenance Routine" className="bg-slate-900">Recurring Maintenance Routine</option>
+                          </select>
+                        </div>
+
+                        <div className="flex-1">
+                          <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Target Execution Window</label>
+                          <input
+                            type="datetime-local"
+                            required={isScheduled}
+                            value={executeAt}
+                            onChange={(e) => setExecuteAt(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all [color-scheme:light] dark:[color-scheme:dark]"
+                          />
+                        </div>
+                      </div>
+
+                      {scheduleFrequency === 'Recurring Maintenance Routine' && (
+                        <div>
+                          <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Cron Pattern Interval</label>
+                          <input
+                            type="text"
+                            required={scheduleFrequency === 'Recurring Maintenance Routine'}
+                            value={cronExpression}
+                            onChange={(e) => setCronExpression(e.target.value)}
+                            placeholder="0 6 * * 1"
+                            className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
+                          />
+                          <p className="text-[10px] text-slate-500 mt-1 font-mono uppercase">e.g., '0 6 * * 1' for weekly</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
               </div>
-              
+
               <div className="px-8 py-4 border-t border-slate-200 dark:border-white/5 flex gap-4 bg-slate-50/50 dark:bg-white/5">
                 <button
                   type="button"
@@ -1241,15 +1252,17 @@ export const AdminTicketsQueue: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Status</label>
+                    <label className="block text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mb-2">Status</label>
                     <select
                       value={coreStatus}
                       onChange={(e) => setCoreStatus(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm focus:outline-none transition-all"
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
                     >
-                      <option value="OPEN" className="bg-slate-900">OPEN</option>
-                      <option value="IN_PROGRESS" className="bg-slate-900">IN PROGRESS</option>
-                      <option value="CLOSED" className="bg-slate-900">CLOSED</option>
+                      {TICKET_STATUS_WORKFLOW.map((status) => (
+                        <option key={status.value} value={status.value} className="bg-slate-50 dark:bg-slate-900">
+                          {status.label.toUpperCase()}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
