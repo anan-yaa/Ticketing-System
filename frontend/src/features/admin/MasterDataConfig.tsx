@@ -478,11 +478,11 @@ export const MasterDataConfig: React.FC = () => {
         </div>
 
         {/* STATUSES Panel */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm flex flex-col gap-4 border-l-4 border-l-purple-500">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col gap-4 border-l-4 border-l-purple-500 transition-colors duration-200">
           <div className="flex justify-between items-center mb-2">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-black tracking-wider text-slate-800 uppercase">Statuses</h3>
-              <span className="text-[10px] font-bold bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">
+              <h3 className="text-sm font-black tracking-wider text-slate-800 dark:text-slate-100 uppercase">Statuses</h3>
+              <span className="text-[10px] font-bold bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400 px-2 py-0.5 rounded-full">
                 {statuses?.length || 0} Defined
               </span>
             </div>
@@ -497,11 +497,20 @@ export const MasterDataConfig: React.FC = () => {
           {/* Map List of Status Rows from DB */}
           <div className="flex flex-col gap-3 max-h-[250px] overflow-y-auto pr-1">
             {statuses?.map((status: any) => (
-              <div key={status.id} className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200/50">
+              <div 
+                key={status.id} 
+                className="flex justify-between items-center bg-slate-50/70 dark:bg-slate-950/40 p-4 rounded-xl border border-slate-200/50 dark:border-slate-800/80 transition-all"
+              >
+                {/* Refactored Status Sub-Row Option Item Wrapper */}
                 <div>
-                  <h4 className="text-xs font-bold text-slate-800 uppercase">{status.label}</h4>
+                  {/* Row Label text color update */}
+                  <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                    {status.label}
+                  </h4>
                   {status.description && (
-                    <p className="text-[10px] font-medium text-slate-400 mt-0.5">{status.description}</p>
+                    <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-0.5 normal-case leading-normal">
+                      {status.description}
+                    </p>
                   )}
                 </div>
                 

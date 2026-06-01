@@ -23,6 +23,18 @@ export const AdminTicketsQueue: React.FC = () => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
 
+  const [isAdvancedModalOpen, setIsAdvancedModalOpen] = useState<boolean>(false);
+
+  // Advanced query states
+  const [searchCustomer, setSearchCustomer] = useState<string>('');
+  const [searchStartDate, setSearchStartDate] = useState<string>('');
+  const [searchEndDate, setSearchEndDate] = useState<string>('');
+  const [searchTicketNo, setSearchTicketNo] = useState<string>('');
+  const [searchSubject, setSearchSubject] = useState<string>('');
+
+  // Helper to evaluate if any advanced query parameter is active
+  const isAdvancedSearchActive = !!(searchCustomer || searchStartDate || searchEndDate || searchTicketNo || searchSubject);
+
   const handleCheckboxToggle = (value: string, currentState: string[], setStateFn: React.Dispatch<React.SetStateAction<string[]>>) => {
     if (currentState.includes(value)) {
       setStateFn(currentState.filter(item => item !== value));
@@ -55,6 +67,20 @@ export const AdminTicketsQueue: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Advanced Filters user list: uses the exact same fetchUsers() as the Create Ticket modal
+  const { data: advFiltersUsersData, isLoading: isLoadingUsers } = useQuery({
+    queryKey: ['advancedFiltersCustomersList'],
+    queryFn: () => fetchUsers(1, 200, ''),
+  });
+
+  // Mirror the same CUSTOMER filter logic used in the Create Ticket modal's 'customers' array
+  const advFiltersCustomers = React.useMemo(() => {
+    const allRows = advFiltersUsersData?.users || [];
+    return allRows.filter(
+      (u: any) => u.role?.name === 'CUSTOMER' || u.systemRole === 'CUSTOMER'
+    );
+  }, [advFiltersUsersData]);
 
   const { data: serverStatuses = [], isLoading: isLoadingStatuses } = useQuery({
     queryKey: ['activeMasterStatuses'],
@@ -409,6 +435,28 @@ export const AdminTicketsQueue: React.FC = () => {
     if (selectedCategories.length > 0 && !selectedCategories.includes(t.category || t.firewallCategory || '')) return false;
     if (selectedChannels.length > 0 && !selectedChannels.includes(t.source || t.ticketSource || '')) return false;
 
+    // 2. New Advanced Form Input Filters
+    if (searchTicketNo && !t.id?.toLowerCase().includes(searchTicketNo.toLowerCase())) return false;
+    if (searchCustomer) {
+      const custName = t.customerName || t.customer?.name || (t as any).userName || '';
+      // Match exact selected customer name from our directory tree dropdown
+      if (custName !== searchCustomer) return false;
+    }
+    if (searchSubject && !t.title?.toLowerCase().includes(searchSubject.toLowerCase())) return false;
+
+    if (searchStartDate) {
+      const ticketDate = new Date(t.createdAt);
+      const startLimit = new Date(searchStartDate);
+      if (ticketDate < startLimit) return false;
+    }
+    if (searchEndDate) {
+      const ticketDate = new Date(t.createdAt);
+      const endLimit = new Date(searchEndDate);
+      // Set time to end of day to include records created on that specific day comfortably
+      endLimit.setHours(23, 59, 59, 999);
+      if (ticketDate > endLimit) return false;
+    }
+
     return true;
   });
 
@@ -698,7 +746,7 @@ export const AdminTicketsQueue: React.FC = () => {
                     {/* Invisible backdrop shield layer to handle outside clicks cleanly */}
                     <div className="fixed inset-0 z-40" onClick={() => setIsFilterDropdownOpen(false)} />
 
-                    <div className="absolute right-0 mt-2 w-76 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-[0_12px_30px_-4px_rgba(15,23,42,0.08)] dark:shadow-[0_12px_30px_-4px_rgba(0,0,0,0.5)] z-50 flex flex-col gap-4 max-h-[480px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent pr-2 animate-in fade-in slide-in-from-top-1 duration-150 text-left">
+                    <div className="absolute right-0 mt-2 w-84 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-[0_12px_35px_-4px_rgba(15,23,42,0.09)] dark:shadow-[0_12px_40px_-4px_rgba(0,0,0,0.5)] z-50 flex flex-col gap-4 max-h-[480px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800 scrollbar-track-transparent pr-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
                       <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2.5">
 
                         {totalActiveFiltersCount > 0 && (
@@ -716,14 +764,16 @@ export const AdminTicketsQueue: React.FC = () => {
                         <span className="text-[9px] font-black tracking-wider text-slate-400 uppercase mb-0.5">States</span>
                         <div className="flex flex-col gap-1.5 max-h-28 overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-slate-100 dark:scrollbar-thumb-slate-800">
                           {serverStatuses?.filter((s: any) => s.isActive !== false).map((status: any) => (
-                            <label key={status.id} className="flex items-center gap-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200">
+                            <label key={status.id} className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200 w-full py-0.5">
                               <input
                                 type="checkbox"
                                 checked={selectedStates.includes(status.name)}
                                 onChange={() => handleCheckboxToggle(status.name, selectedStates, setSelectedStates)}
-                                className="h-3.5 w-3.5 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sky-600 focus:ring-sky-500/20 cursor-pointer transition-all"
+                                className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sky-600 focus:ring-sky-500/20 cursor-pointer transition-all shrink-0"
                               />
-                              <span className="uppercase tracking-wide">{status.label}</span>
+                              <span className="uppercase tracking-wide truncate" title={status.label}>
+                                {status.label}
+                              </span>
                             </label>
                           ))}
                         </div>
@@ -734,14 +784,16 @@ export const AdminTicketsQueue: React.FC = () => {
                         <span className="text-[9px] font-black tracking-wider text-slate-400 uppercase mb-0.5">Ticket Type</span>
                         <div className="flex flex-col gap-1.5">
                           {masterTypes?.map((type: any) => (
-                            <label key={type.id} className="flex items-center gap-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200">
+                            <label key={type.id} className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200 w-full py-0.5">
                               <input
                                 type="checkbox"
                                 checked={selectedTypes.includes(type.name)}
                                 onChange={() => handleCheckboxToggle(type.name, selectedTypes, setSelectedTypes)}
-                                className="h-3.5 w-3.5 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sky-600 focus:ring-sky-500/20 cursor-pointer transition-all"
+                                className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sky-600 focus:ring-sky-500/20 cursor-pointer transition-all shrink-0"
                               />
-                              <span className="uppercase tracking-wide">{type.name}</span>
+                              <span className="uppercase tracking-wide truncate" title={type.name}>
+                                {type.name}
+                              </span>
                             </label>
                           ))}
                         </div>
@@ -752,14 +804,16 @@ export const AdminTicketsQueue: React.FC = () => {
                         <span className="text-[9px] font-black tracking-wider text-slate-400 uppercase mb-0.5">Category</span>
                         <div className="flex flex-col gap-1.5 max-h-28 overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-slate-100 dark:scrollbar-thumb-slate-800">
                           {masterCategories?.map((cat: any) => (
-                            <label key={cat.id} className="flex items-center gap-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200">
+                            <label key={cat.id} className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200 w-full py-0.5">
                               <input
                                 type="checkbox"
                                 checked={selectedCategories.includes(cat.name)}
                                 onChange={() => handleCheckboxToggle(cat.name, selectedCategories, setSelectedCategories)}
-                                className="h-3.5 w-3.5 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sky-600 focus:ring-sky-500/20 cursor-pointer transition-all"
+                                className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sky-600 focus:ring-sky-500/20 cursor-pointer transition-all shrink-0"
                               />
-                              <span className="uppercase tracking-wide">{cat.name}</span>
+                              <span className="uppercase tracking-wide truncate" title={cat.name}>
+                                {cat.name}
+                              </span>
                             </label>
                           ))}
                         </div>
@@ -770,17 +824,33 @@ export const AdminTicketsQueue: React.FC = () => {
                         <span className="text-[9px] font-black tracking-wider text-slate-400 uppercase mb-0.5">Source Channel</span>
                         <div className="flex flex-col gap-1.5">
                           {['Email', 'Phone', 'Portal'].map((channel) => (
-                            <label key={channel} className="flex items-center gap-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200">
+                            <label key={channel} className="flex items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200 w-full py-0.5">
                               <input
                                 type="checkbox"
                                 checked={selectedChannels.includes(channel)}
                                 onChange={() => handleCheckboxToggle(channel, selectedChannels, setSelectedChannels)}
-                                className="h-3.5 w-3.5 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sky-600 focus:ring-sky-500/20 cursor-pointer transition-all"
+                                className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sky-600 focus:ring-sky-500/20 cursor-pointer transition-all shrink-0"
                               />
-                              <span className="uppercase tracking-wide">{channel}</span>
+                              <span className="uppercase tracking-wide truncate" title={channel}>
+                                {channel}
+                              </span>
                             </label>
                           ))}
                         </div>
+                      </div>
+
+                      {/* NEW ACTION FOOTER ZONE */}
+                      <div className="flex flex-col gap-2 border-t border-slate-100 dark:border-slate-800/60 pt-3 mt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsFilterDropdownOpen(false); // Close popover safely
+                            setIsAdvancedModalOpen(true);   // Launch the heavy modal
+                          }}
+                          className="w-full text-center py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800/50 text-sky-600 dark:text-sky-400 text-xs font-black tracking-wider uppercase rounded-xl transition-all"
+                        >
+                          ⚙️ Advanced Filters
+                        </button>
                       </div>
                     </div>
                   </>
@@ -797,6 +867,7 @@ export const AdminTicketsQueue: React.FC = () => {
             </div>
           </PermissionGate>
         </div>
+
         {isLoadingTickets ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
@@ -1776,6 +1847,146 @@ export const AdminTicketsQueue: React.FC = () => {
           selectedTicket={selectedTicket}
           allTickets={tickets}
         />
+      )}
+
+      {/* Theme-Adaptive Search Matrix Modal Overlay */}
+      {isAdvancedModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          {/* Backdrop Click Dismissal */}
+          <div className="fixed inset-0" onClick={() => setIsAdvancedModalOpen(false)} />
+
+          {/* Modal Core Bounding Box */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-xl rounded-2xl shadow-xl z-10 flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-950/20">
+              <div>
+                <h3 className="text-sm font-black tracking-wider text-slate-800 dark:text-slate-100 uppercase">Advanced Search Filters</h3>
+                <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase mt-0.5">Filter data grid by specific record fields</p>
+              </div>
+              <button
+                onClick={() => setIsAdvancedModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+
+            {/* Modal Body: 2x2 High-Density Input Grid */}
+            <div className="p-6 flex flex-col gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                {/* Search Parameter 1: Ticket Number */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black tracking-wider text-slate-400 dark:text-slate-500 uppercase">Ticket Number</label>
+                  <input
+                    type="text"
+                    value={searchTicketNo}
+                    onChange={(e) => setSearchTicketNo(e.target.value)}
+                    placeholder="e.g. TKT-2069"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-sky-500 transition-colors placeholder:text-slate-400/70"
+                  />
+                </div>
+
+                {/* Search Parameter 2: Dynamic Customer/User Selector Dropdown */}
+                {/* Search Parameter 2: Customer/User Selector — reuses the same fetchUsers() data as Create Ticket modal */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black tracking-wider text-slate-400 dark:text-slate-500 uppercase">
+                    Customer / User Name
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={searchCustomer}
+                      onChange={(e) => setSearchCustomer(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-sky-500 transition-colors appearance-none cursor-pointer"
+                    >
+                      <option value="">
+                        {isLoadingUsers ? "🔄 Loading accounts..." : "-- SELECT CUSTOMER ACCOUNT --"}
+                      </option>
+
+                      {/* REUSING THE EXACT WORKING ARRAY FROM THE CREATE TICKET MODAL */}
+                      {advFiltersCustomers.map((c: any) => {
+                        const custId = c.customerId || c.id.substring(0, 8).toUpperCase();
+                        return (
+                          <option key={c.id} value={c.name} className="bg-white dark:bg-slate-900">
+                            [{custId}] {String(c.name).toUpperCase()} ({c.email})
+                          </option>
+                        );
+                      })}
+
+                      {!isLoadingUsers && advFiltersCustomers.length === 0 && (
+                        <option disabled className="text-rose-400">
+                          NO REGISTERED CUSTOMER ACCOUNTS FOUND
+                        </option>
+                      )}
+                    </select>
+
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Search Parameter 3: Date Fields (Start & End grouped inline) */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black tracking-wider text-slate-400 dark:text-slate-500 uppercase">Created After (Start Date)</label>
+                  <input
+                    type="date"
+                    value={searchStartDate}
+                    onChange={(e) => setSearchStartDate(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-sky-500 transition-colors uppercase"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black tracking-wider text-slate-400 dark:text-slate-500 uppercase">Created Before (End Date)</label>
+                  <input
+                    type="date"
+                    value={searchEndDate}
+                    onChange={(e) => setSearchEndDate(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-sky-500 transition-colors uppercase"
+                  />
+                </div>
+
+              </div>
+
+              {/* Search Parameter 4: Ticket Subject Line (Full-width row) */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black tracking-wider text-slate-400 dark:text-slate-500 uppercase">Ticket Subject / Title Keywords</label>
+                <input
+                  type="text"
+                  value={searchSubject}
+                  onChange={(e) => setSearchSubject(e.target.value)}
+                  placeholder="Search words inside ticket headings..."
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-sky-500 transition-colors placeholder:text-slate-400/70"
+                />
+              </div>
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-800 flex justify-end items-center gap-3">
+              {isAdvancedSearchActive && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchCustomer(''); setSearchStartDate(''); setSearchEndDate(''); setSearchTicketNo(''); setSearchSubject('');
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-rose-500 hover:text-rose-600 uppercase tracking-wide"
+                >
+                  Reset Form
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsAdvancedModalOpen(false)}
+                className="bg-sky-600 hover:bg-sky-500 text-white text-xs font-black tracking-wider uppercase px-5 py-2.5 rounded-xl shadow-md shadow-sky-600/10 active:translate-y-0.5 transition-all"
+              >
+                Apply Search
+              </button>
+            </div>
+
+          </div>
+        </div>
       )}
     </div>
   );
