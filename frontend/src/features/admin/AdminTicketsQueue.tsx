@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchAllTicketsAdmin, createTicketAdmin, updateTicketCoreData, Ticket } from '../../api/tickets';
 import { fetchUsers } from '../../api/users';
@@ -11,25 +11,28 @@ import { MergeTicketsModal } from './MergeTicketsModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-const TICKET_TYPES = [
-  "Incident",
-  "Service Request",
-  "Proactive Notification",
-  "Report",
-  "Information",
-  "Notification - Domain/Renewal Updates",
-  "Junk - Advertisements",
-  "Maintenance"
-];
-
-const MASTER_GROUPS = ['RIMS', 'MI', 'DATA CENTER', 'DS', 'TSS', 'DATABASE', 'CLOUD'];
-
 
 export const AdminTicketsQueue: React.FC = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [workspace, setWorkspace] = useState<'openQueue' | 'myQueue' | 'closedArchive'>('openQueue');
   const [selectedGroupFilter, setSelectedGroupFilter] = useState('ALL');
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState<boolean>(false);
+  const [selectedStates, setSelectedStates] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
+
+  const handleCheckboxToggle = (value: string, currentState: string[], setStateFn: React.Dispatch<React.SetStateAction<string[]>>) => {
+    if (currentState.includes(value)) {
+      setStateFn(currentState.filter(item => item !== value));
+    } else {
+      setStateFn([...currentState, value]);
+    }
+  };
+
+  const totalActiveFiltersCount = selectedStates.length + selectedTypes.length + selectedCategories.length + selectedChannels.length;
+
   const [isExpanded, setIsExpanded] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCoreDataModalOpen, setIsCoreDataModalOpen] = useState(false);
@@ -38,6 +41,31 @@ export const AdminTicketsQueue: React.FC = () => {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [replyText, setReplyText] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [isStatusPopoverOpen, setIsStatusPopoverOpen] = useState(false);
+  const statusPopoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (statusPopoverRef.current && !statusPopoverRef.current.contains(event.target as Node)) {
+        setIsStatusPopoverOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const { data: serverStatuses = [], isLoading: isLoadingStatuses } = useQuery({
+    queryKey: ['activeMasterStatuses'],
+    queryFn: async () => {
+      const res = await api.get('/admin/master-config/statuses').catch(async () => {
+        // Fallback in case endpoint is not nested under /admin
+        return await api.get('/master-config/statuses');
+      });
+      return res.data;
+    }
+  });
 
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -71,13 +99,7 @@ export const AdminTicketsQueue: React.FC = () => {
     }
   };
 
-  const { data: workflowStatuses = [] } = useQuery<any[]>({
-    queryKey: ['master-statuses'],
-    queryFn: async () => {
-      const res = await api.get('/master-config/statuses?activeOnly=true');
-      return res.data;
-    },
-  });
+  // Unified query uses serverStatuses
 
   const submitMessage = async (isInternal: boolean) => {
     if (!replyText.trim() || !selectedTicket) return;
@@ -203,19 +225,17 @@ export const AdminTicketsQueue: React.FC = () => {
     queryFn: async () => {
       const res = await api.get('/master-config/categories?activeOnly=true');
       return res.data;
-    },
-    enabled: isCoreDataModalOpen,
+    }
   });
 
   // Fetch Master Data Types
-  // const { data: masterTypes = [] } = useQuery<any[]>({
-  //   queryKey: ['master-types'],
-  //   queryFn: async () => {
-  //     const res = await api.get('/master-config/types?activeOnly=true');
-  //     return res.data;
-  //   },
-  //   enabled: isCoreDataModalOpen,
-  // });
+  const { data: masterTypes = [] } = useQuery<any[]>({
+    queryKey: ['master-types'],
+    queryFn: async () => {
+      const res = await api.get('/master-config/types?activeOnly=true');
+      return res.data;
+    }
+  });
 
 
   // Fetch Assignment Groups
@@ -273,7 +293,7 @@ export const AdminTicketsQueue: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['activeTicketsList'] });
       queryClient.invalidateQueries({ queryKey: ['archivedTicketsList'] });
       queryClient.invalidateQueries({ queryKey: ['ticketDetails', updated.id] });
-      
+
       showToast('CORE DATA ADDED', 'success');
       setIsCoreDataModalOpen(false);
 
@@ -374,12 +394,21 @@ export const AdminTicketsQueue: React.FC = () => {
   // Filter tickets dynamically by routing group (Rule B)
   const groupFilteredTickets = tickets.filter((t) => {
     if (selectedGroupFilter !== 'ALL') {
+      const getGroup = (tk: any) => tk.queueId || tk.serviceContract || tk.serviceGroup || '';
+
       if (selectedGroupFilter.includes('::')) {
         const [svc, type] = selectedGroupFilter.split('::');
-        return t.serviceContract === svc && t.ticketType === type;
+        if (!(getGroup(t).toUpperCase() === svc && (t.ticketType || '').toUpperCase() === type)) return false;
+      } else {
+        if (getGroup(t).toUpperCase() !== selectedGroupFilter) return false;
       }
-      return t.queueId === selectedGroupFilter;
     }
+
+    if (selectedStates.length > 0 && !selectedStates.includes(t.status)) return false;
+    if (selectedTypes.length > 0 && !selectedTypes.includes(t.ticketType || '')) return false;
+    if (selectedCategories.length > 0 && !selectedCategories.includes(t.category || t.firewallCategory || '')) return false;
+    if (selectedChannels.length > 0 && !selectedChannels.includes(t.source || t.ticketSource || '')) return false;
+
     return true;
   });
 
@@ -397,6 +426,42 @@ export const AdminTicketsQueue: React.FC = () => {
   const closedArchiveTickets = groupFilteredTickets.filter(
     (t) => t.status === 'CLOSED'
   );
+
+  // Dynamically calculate assigned groups present in the current workflow payload
+  const nestedQueuesTree = useMemo(() => {
+    const tree: Record<string, { totalCount: number; types: Record<string, number> }> = {};
+
+    // We compute this from ALL unclosed tickets globally, independent of group filter
+    const openTicketsGlobally = tickets.filter(t => t.status !== 'CLOSED');
+
+    openTicketsGlobally.forEach((ticket: any) => {
+      const groupKeyRaw = ticket.queueId || ticket.serviceContract || ticket.serviceGroup;
+      const typeRaw = ticket.ticketType;
+
+      const group = groupKeyRaw ? groupKeyRaw.toUpperCase() : null;
+      const type = typeRaw ? typeRaw.toUpperCase() : null;
+
+      if (group && type) {
+        if (!tree[group]) {
+          tree[group] = { totalCount: 0, types: {} };
+        }
+        tree[group].types[type] = (tree[group].types[type] || 0) + 1;
+        tree[group].totalCount += 1;
+      }
+    });
+
+    // Transform into an array and sort alphabetically by group name
+    return Object.entries(tree)
+      .map(([groupName, data]) => ({
+        groupName,
+        totalCount: data.totalCount,
+        types: Object.entries(data.types).map(([typeName, count]) => ({
+          typeName,
+          count
+        })).sort((a, b) => a.typeName.localeCompare(b.typeName))
+      }))
+      .sort((a, b) => a.groupName.localeCompare(b.groupName));
+  }, [tickets]);
 
   const displayedTickets =
     workspace === 'openQueue' ? openQueueTickets :
@@ -482,50 +547,101 @@ export const AdminTicketsQueue: React.FC = () => {
           </button>
 
           {isExpanded && workspace === 'openQueue' && (
-            <div className="pl-2 space-y-4 pt-2">
-              {MASTER_GROUPS.map((serviceGroup) => {
-                const subQueues = TICKET_TYPES.map((type, index) => {
-                  const count = tickets.filter(
-                    (t) => t.serviceContract === serviceGroup && t.ticketType === type && t.status !== 'CLOSED'
-                  ).length;
-                  const code = `${serviceGroup}-${String(index + 1).padStart(3, '0')}`;
-                  const filterName = `${serviceGroup}::${type}`;
-                  return { label: type, code, filterName, count };
-                }).filter((sq) => sq.count >= 1);
+            <div className="flex flex-col gap-1 mt-3 pl-2">
+              {/* Master All Open Tickets Filter Control Row */}
+              <button
+                type="button"
+                onClick={() => setSelectedGroupFilter('ALL')}
+                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${selectedGroupFilter === 'ALL'
+                  ? 'bg-sky-50 text-sky-700 shadow-sm dark:bg-sky-500/10 dark:text-sky-400'
+                  : 'text-slate-500 hover:bg-slate-100/70 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200'
+                  }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                    <polyline points="2 17 12 22 22 17" />
+                    <polyline points="2 12 12 17 22 12" />
+                  </svg>
+                  <span className="tracking-wide uppercase">All Open Tickets</span>
+                </div>
 
-                if (subQueues.length === 0) return null;
+                {/* Total Live Open Count Badge Indicator */}
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${selectedGroupFilter === 'ALL'
+                  ? 'bg-sky-200/60 text-sky-800 dark:bg-sky-500/20 dark:text-sky-300'
+                  : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                  }`}>
+                  {tickets.filter(t => t.status !== 'CLOSED').length || 0}
+                </span>
+              </button>
 
-                return (
-                  <div key={serviceGroup} className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                    <h4 className="text-[9px] font-mono text-slate-500 uppercase tracking-widest font-semibold px-2">
-                      ── {serviceGroup} QUEUES ──
-                    </h4>
-                    <div className="space-y-1">
-                      {subQueues.map((q) => {
-                        const isActive = selectedGroupFilter === q.filterName;
-                        return (
-                          <button
-                            key={q.code}
-                            onClick={() => setSelectedGroupFilter(q.filterName)}
-                            className={`w-full text-left px-4 py-2 rounded-xl text-xs font-mono transition-all duration-200 uppercase border flex items-center justify-between ${isActive
-                              ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/25 shadow-[0_0_15px_rgba(6,182,212,0.15)] font-bold'
-                              : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                              }`}
-                          >
-                            <div className="flex items-center">
-                              <span className="inline-block text-cyan-600/70 font-mono text-[10px] mr-2 tracking-wider">
-                                [{q.code}]
-                              </span>
-                              <span className="truncate max-w-[120px]" title={q.label}>{q.label}</span>
-                            </div>
-                            <span className="font-bold text-slate-300">({q.count})</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+              {/* Horizontal Divider Line Accent */}
+              <div className="border-t border-slate-100 dark:border-slate-800/60 my-2 mx-2" />
+
+              <span className="text-[9px] font-black tracking-widest text-slate-400 uppercase pl-4 mb-1 mt-1">
+                — Service Queues —
+              </span>
+
+              <div className="flex flex-col gap-2 pl-2 mt-2">
+                {nestedQueuesTree.length === 0 ? (
+                  <span className="text-[10px] font-medium text-slate-400 italic pl-4 py-2">
+                    No active group assignments found
+                  </span>
+                ) : (
+                  nestedQueuesTree.map((group) => {
+                    const isGroupSelected = selectedGroupFilter === group.groupName;
+
+                    return (
+                      <div key={group.groupName} className="flex flex-col gap-1">
+                        {/* Parent Node: Service Group Header Button */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedGroupFilter(group.groupName)}
+                          className={`w-full flex items-center justify-between px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all ${isGroupSelected
+                            ? 'bg-sky-50 text-sky-700 shadow-sm border-l-2 border-l-sky-500 dark:bg-sky-500/10 dark:text-sky-400'
+                            : 'text-slate-600 hover:bg-slate-100/60 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200'
+                            }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-70">
+                              <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+                            </svg>
+                            <span className="uppercase">{group.groupName}</span>
+                          </div>
+                          <span className="text-[9px] font-black bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 px-1.5 py-0.5 rounded-full font-mono">
+                            {group.totalCount}
+                          </span>
+                        </button>
+
+                        {/* Nested Child Nodes: Dynamic Active Ticket Types */}
+                        <div className="flex flex-col gap-0.5 pl-6 border-l border-slate-200/60 dark:border-slate-800 ml-4 mb-1">
+                          {group.types.map((type) => {
+                            const filterId = `${group.groupName}::${type.typeName}`;
+                            const isTypeSelected = selectedGroupFilter === filterId;
+
+                            return (
+                              <button
+                                key={type.typeName}
+                                type="button"
+                                onClick={() => setSelectedGroupFilter(filterId)}
+                                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${isTypeSelected
+                                  ? 'text-sky-600 bg-sky-50/50 font-bold dark:text-sky-400 dark:bg-sky-500/10'
+                                  : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50 dark:hover:text-slate-200 dark:hover:bg-slate-800/50'
+                                  }`}
+                              >
+                                <span className="uppercase tracking-wide text-left truncate max-w-[120px]">↳ {type.typeName.toLowerCase()}</span>
+                                <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 font-mono pr-1">
+                                  ({type.count})
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -553,12 +669,132 @@ export const AdminTicketsQueue: React.FC = () => {
         {/* Action Header */}
         <div className="flex justify-end items-center mb-6">
           <PermissionGate allowedPermissions={['TICKET_CREATE_AS_ADMIN']}>
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl shadow-lg shadow-sky-600/10 hover:shadow-sky-500/20 transform hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2"
-            >
-              + CREATE TICKET
-            </button>
+            <div className="flex items-center gap-3">
+              {/* COMPONENT LAYER: Advanced Filters Floating Wrapper */}
+              <div className="relative">
+                {/* Filter Toggle Trigger Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide uppercase transition-all duration-200 border border-slate-200/90 dark:border-white/10 shadow-sm ${totalActiveFiltersCount > 0
+                    ? 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/30'
+                    : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800 dark:bg-slate-900/50 dark:text-slate-400 dark:hover:bg-slate-800/80 dark:hover:text-slate-200'
+                    }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                  </svg>
+                  <span>Filters</span>
+                  {totalActiveFiltersCount > 0 && (
+                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black bg-sky-600 text-white font-mono">
+                      {totalActiveFiltersCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Floating Checkbox Matrix Card (Absolute-Positioned) */}
+                {isFilterDropdownOpen && (
+                  <>
+                    {/* Invisible backdrop shield layer to handle outside clicks cleanly */}
+                    <div className="fixed inset-0 z-40" onClick={() => setIsFilterDropdownOpen(false)} />
+
+                    <div className="absolute right-0 mt-2 w-76 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-[0_12px_30px_-4px_rgba(15,23,42,0.08)] dark:shadow-[0_12px_30px_-4px_rgba(0,0,0,0.5)] z-50 flex flex-col gap-4 max-h-[480px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent pr-2 animate-in fade-in slide-in-from-top-1 duration-150 text-left">
+                      <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2.5">
+
+                        {totalActiveFiltersCount > 0 && (
+                          <button
+                            onClick={() => { setSelectedStates([]); setSelectedTypes([]); setSelectedCategories([]); setSelectedChannels([]); }}
+                            className="text-[9px] font-bold text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 uppercase"
+                          >
+                            Reset All
+                          </button>
+                        )}
+                      </div>
+
+                      {/* BLOCK 1: SYSTEM LIFE-CYCLE STATES */}
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-[9px] font-black tracking-wider text-slate-400 uppercase mb-0.5">States</span>
+                        <div className="flex flex-col gap-1.5 max-h-28 overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-slate-100 dark:scrollbar-thumb-slate-800">
+                          {serverStatuses?.filter((s: any) => s.isActive !== false).map((status: any) => (
+                            <label key={status.id} className="flex items-center gap-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200">
+                              <input
+                                type="checkbox"
+                                checked={selectedStates.includes(status.name)}
+                                onChange={() => handleCheckboxToggle(status.name, selectedStates, setSelectedStates)}
+                                className="h-3.5 w-3.5 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sky-600 focus:ring-sky-500/20 cursor-pointer transition-all"
+                              />
+                              <span className="uppercase tracking-wide">{status.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* BLOCK 2: TICKET TYPE */}
+                      <div className="flex flex-col gap-1.5 border-t border-slate-100 dark:border-slate-800 pt-2.5">
+                        <span className="text-[9px] font-black tracking-wider text-slate-400 uppercase mb-0.5">Ticket Type</span>
+                        <div className="flex flex-col gap-1.5">
+                          {masterTypes?.map((type: any) => (
+                            <label key={type.id} className="flex items-center gap-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200">
+                              <input
+                                type="checkbox"
+                                checked={selectedTypes.includes(type.name)}
+                                onChange={() => handleCheckboxToggle(type.name, selectedTypes, setSelectedTypes)}
+                                className="h-3.5 w-3.5 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sky-600 focus:ring-sky-500/20 cursor-pointer transition-all"
+                              />
+                              <span className="uppercase tracking-wide">{type.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* BLOCK 3: CATEGORY */}
+                      <div className="flex flex-col gap-1.5 border-t border-slate-100 dark:border-slate-800 pt-2.5">
+                        <span className="text-[9px] font-black tracking-wider text-slate-400 uppercase mb-0.5">Category</span>
+                        <div className="flex flex-col gap-1.5 max-h-28 overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-slate-100 dark:scrollbar-thumb-slate-800">
+                          {masterCategories?.map((cat: any) => (
+                            <label key={cat.id} className="flex items-center gap-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200">
+                              <input
+                                type="checkbox"
+                                checked={selectedCategories.includes(cat.name)}
+                                onChange={() => handleCheckboxToggle(cat.name, selectedCategories, setSelectedCategories)}
+                                className="h-3.5 w-3.5 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sky-600 focus:ring-sky-500/20 cursor-pointer transition-all"
+                              />
+                              <span className="uppercase tracking-wide">{cat.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* BLOCK 4: SOURCE CHANNEL */}
+                      <div className="flex flex-col gap-1.5 border-t border-slate-100 dark:border-slate-800 pt-2.5">
+                        <span className="text-[9px] font-black tracking-wider text-slate-400 uppercase mb-0.5">Source Channel</span>
+                        <div className="flex flex-col gap-1.5">
+                          {['Email', 'Phone', 'Portal'].map((channel) => (
+                            <label key={channel} className="flex items-center gap-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200">
+                              <input
+                                type="checkbox"
+                                checked={selectedChannels.includes(channel)}
+                                onChange={() => handleCheckboxToggle(channel, selectedChannels, setSelectedChannels)}
+                                className="h-3.5 w-3.5 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sky-600 focus:ring-sky-500/20 cursor-pointer transition-all"
+                              />
+                              <span className="uppercase tracking-wide">{channel}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* EXISTING TRIGGER BUTTON: Create Ticket Button */}
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl shadow-lg shadow-sky-600/10 hover:shadow-sky-500/20 transform hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2"
+              >
+                + CREATE TICKET
+              </button>
+            </div>
           </PermissionGate>
         </div>
         {isLoadingTickets ? (
@@ -720,65 +956,94 @@ export const AdminTicketsQueue: React.FC = () => {
             <div className="w-full md:w-[70%] md:max-w-[70%] md:shrink-0 bg-white/50 dark:bg-black/40 border-r border-slate-200 dark:border-white/5 p-8 flex flex-col overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
-                  <select
-                    value={selectedTicket.subStatus || 'NONE'}
-                    onChange={async (e) => {
-                      const selectedVal = e.target.value;
-                      if (selectedVal === 'NONE') return;
-                      try {
-                        let payload: any = {
-                          status: 'IN_PROGRESS',
-                          subStatus: selectedVal,
-                          assignedToId: user?.id,
-                          ticketOwnerId: user?.id
-                        };
+                  <div className="relative" ref={statusPopoverRef}>
+                    <button
+                      onClick={() => setIsStatusPopoverOpen(!isStatusPopoverOpen)}
+                      className="w-full min-w-[160px] bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-2.5 text-xs font-bold tracking-wider uppercase focus:outline-none transition-all duration-200 text-left flex justify-between items-center"
+                    >
+                      <span>{selectedTicket.status || 'ASSIGN STATE'}</span>
+                      <svg className={`w-4 h-4 transition-transform ${isStatusPopoverOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
 
-                        if (selectedVal === 'RESOLVED') {
-                          payload = {
-                            status: 'RESOLVED',
-                            subStatus: 'NONE', // RESOLVED is not a valid Prisma SubStatus enum
-                            assignedToId: user?.id,
-                            ticketOwnerId: user?.id,
-                            closedAt: new Date().toISOString(),
-                            // Automation Flags
-                            isArchived: true,
-                            archivedAt: new Date().toISOString(),
-                            closedBy: user?.name
-                          };
-                        }
+                    {isStatusPopoverOpen && (
+                      <div className="absolute top-full left-0 z-50 mt-2 w-72 shadow-[0_10px_40px_rgba(0,0,0,0.2)] border border-slate-200 dark:border-slate-800">
+                        <div className="flex flex-col max-h-64 overflow-y-auto p-1 bg-white dark:bg-slate-900 rounded-xl">
+                          {isLoadingStatuses ? (
+                            <div className="text-[10px] font-bold text-slate-400 p-3 animate-pulse uppercase tracking-wider">
+                              Syncing Database Statuses...
+                            </div>
+                          ) : serverStatuses.filter((s: any) => s.isActive !== false).length === 0 ? (
+                            <div className="text-[10px] font-medium text-slate-400 p-3 italic">
+                              No active lifecycle statuses configured
+                            </div>
+                          ) : (
+                            serverStatuses
+                              .filter((status: any) => status.isActive !== false)
+                              .map((status: any) => {
+                                const isCurrentValue = selectedTicket.status === status.name;
 
-                        const res = await api.patch(`/tickets/${selectedTicket.id}/status`, payload);
+                                return (
+                                  <button
+                                    key={status.id}
+                                    type="button"
+                                    onClick={async () => {
+                                      setIsStatusPopoverOpen(false);
+                                      const statusName = status.name;
+                                      try {
+                                        const isResolved = statusName === "RESOLVED";
 
-                        if (selectedVal === 'RESOLVED') {
-                          setSelectedTicket(null);
-                        } else {
-                          setSelectedTicket(res.data);
-                        }
+                                        const payload = {
+                                          status: statusName,
+                                          isArchived: isResolved,
+                                          archivedAt: isResolved ? new Date().toISOString() : null,
+                                          assignedToId: user?.id,
+                                          ticketOwnerId: user?.id,
+                                          ...(isResolved ? {
+                                            subStatus: 'NONE',
+                                            closedAt: new Date().toISOString(),
+                                            closedBy: user?.name
+                                          } : {})
+                                        };
 
-                        queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
-                        queryClient.invalidateQueries({ queryKey: ['activeTicketsList'] });
-                        queryClient.invalidateQueries({ queryKey: ['archivedTicketsList'] });
-                        queryClient.invalidateQueries({ queryKey: ['ticketDetails', selectedTicket.id] });
-                        
-                        setToast({ message: selectedVal === 'RESOLVED' ? 'Ticket successfully resolved and moved to Closed Archive.' : `Status updated to ${selectedVal.replace(/_/g, ' ')}`, type: 'success' });
-                      } catch (err) {
-                        setToast({ message: 'Failed to update Status', type: 'error' });
-                      }
-                    }}
-                    className="w-full max-w-[200px] bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-2.5 text-xs font-bold tracking-wider uppercase focus:outline-none transition-all duration-200"
-                  >
-                    <option value="NONE" disabled className="text-slate-400 dark:text-slate-500">
-                      {(!selectedTicket.ticketOwnerId && !(selectedTicket as any).assignedToId) ? 'ASSIGN STATE' : 'ASSIGN STATE'}
-                    </option>
-                    <option value="WORK_IN_PROGRESS" className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold tracking-wide uppercase cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">Work In Progress</option>
-                    <option value="WAITING_FOR_APPROVAL" className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold tracking-wide uppercase cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">Waiting For Approval</option>
-                    <option value="WAITING_FOR_AGENT" className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold tracking-wide uppercase cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">Waiting For Agent</option>
-                    <option value="WAITING_FOR_VENDOR" className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold tracking-wide uppercase cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">Waiting for Vendor - Issue with Hardware/etc (Purchasing Team)</option>
-                    <option value="WAITING_FOR_CUSTOMER" className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold tracking-wide uppercase cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">Waiting for Customer - Details Requested</option>
-                    <option value="ON_HOLD" className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold tracking-wide uppercase cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">On Hold</option>
-                    <option value="UNDER_OBSERVATION" className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold tracking-wide uppercase cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">Under Observation</option>
-                    <option value="CLOSED" className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold tracking-wide uppercase cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">Closed - Archive</option>
-                  </select>
+                                        const res = await api.patch(`/tickets/${selectedTicket.id}/status`, payload);
+
+                                        if (isResolved) {
+                                          setSelectedTicket(null);
+                                        } else {
+                                          setSelectedTicket(res.data);
+                                        }
+
+                                        queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
+                                        queryClient.invalidateQueries({ queryKey: ['activeTicketsList'] });
+                                        queryClient.invalidateQueries({ queryKey: ['archivedTicketsList'] });
+                                        if (!isResolved) {
+                                          queryClient.invalidateQueries({ queryKey: ['ticketDetails', selectedTicket.id] });
+                                        }
+
+                                        setToast({ message: isResolved ? 'Ticket successfully resolved and moved to Closed Archive.' : `Status updated to ${statusName.replace(/_/g, ' ')}`, type: 'success' });
+                                      } catch (err) {
+                                        setToast({ message: 'Failed to update Status', type: 'error' });
+                                      }
+                                    }}
+                                    className={`w-full text-left px-3.5 py-2.5 text-xs rounded-lg font-semibold transition-all flex flex-col gap-0.5 ${isCurrentValue
+                                      ? 'bg-sky-50 text-sky-700 font-bold dark:bg-sky-500/20 dark:text-sky-300'
+                                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200'
+                                      }`}
+                                  >
+                                    <span className="uppercase tracking-wide">{status.label}</span>
+                                    {status.description && (
+                                      <span className="text-[9px] font-medium text-slate-400 block normal-case">
+                                        {status.description}
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   <button
                     onClick={() => setIsScheduleModalOpen(true)}
@@ -1289,7 +1554,7 @@ export const AdminTicketsQueue: React.FC = () => {
                       onChange={(e) => setCoreStatus(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-3 text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all"
                     >
-                      {workflowStatuses.map((status) => (
+                      {serverStatuses.filter((s: any) => s.isActive !== false).map((status: any) => (
                         <option key={status.id} value={status.name}>
                           {status.label} {status.description ? `- ${status.description}` : ''}
                         </option>
@@ -1374,7 +1639,7 @@ export const AdminTicketsQueue: React.FC = () => {
                     </select>
                   </div>
 
-                  {/* Field 3: CRITICALITY RATING */}
+                  {/* COMMENTED OUT FOR CLEANER UI MATRIX: 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold tracking-wider text-slate-500 uppercase">Criticality Rating</label>
                     <select
@@ -1389,6 +1654,7 @@ export const AdminTicketsQueue: React.FC = () => {
                       <option value="Urgent" className="bg-slate-900">Urgent</option>
                     </select>
                   </div>
+                  */}
 
                   {/* Field 4: PRIORITY THREAT LEVEL */}
                   <div className="flex flex-col gap-1.5">

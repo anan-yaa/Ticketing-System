@@ -2,7 +2,7 @@
 
 A modern, full-stack ticketing management system designed to handle support requests, SLA compliance, and master data configuration with an elegant, responsive UI.
 
-## 🚀 Tech Stack
+## Tech Stack
 
 ### Backend
 - **Framework**: NestJS
@@ -16,7 +16,7 @@ A modern, full-stack ticketing management system designed to handle support requ
 - **State Management & Data Fetching**: TanStack Query (React Query)
 - **Icons**: Phosphor Icons / Lucide
 
-## ✨ Key Features
+## Key Features
 
 - **Robust Ticketing Engine**: Create, update, assign, and manage tickets efficiently.
 - **SLA Compliance Tracking**: Automated calculation and monitoring of Time to First Response (TTFR) and Resolution Deadlines.
@@ -105,13 +105,13 @@ Ticketing-System/
    ```
    The application will be accessible at `http://localhost:5173`.
 
-## 🛡 Authentication & Roles
+## Authentication & Roles
 
 The system is locked down via JWT. Different users get distinct views and capabilities:
 - **Administrators**: Have access to Master Data configuration, the comprehensive active queue, SLA ledgers, and system configurations.
 - **Agents**: Can process incoming queue items, respond to tickets, add internal notes, and manage attachments.
 - **Customers**: Can create and monitor the lifecycle of their own service requests.
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License.
