@@ -234,6 +234,28 @@ export class TicketsService {
     return this.formatTicket(updatedTicket);
   }
 
+  // PATCH /tickets/:id/temporary-closure (Admin)
+  async processTemporaryClosure(ticketId: string, snoozedUntilStr: string) {
+    const ticket = await this.findTicketById(ticketId);
+    if (!ticket) throw new NotFoundException('Ticket not found');
+
+    try {
+      const updatedTicket = await this.prisma.ticket.update({
+        where: { id: ticket.id },
+        data: {
+          preSnoozeStatus: ticket.status,
+          status: TicketStatus.TEMPORARILY_CLOSED,
+          snoozedAt: new Date(),
+          snoozedUntil: new Date(snoozedUntilStr),
+        },
+      });
+      return this.formatTicket(updatedTicket);
+    } catch (error) {
+      console.error('[processTemporaryClosure] Failed to snooze ticket:', error);
+      throw new BadRequestException('Failed to process temporary closure.');
+    }
+  }
+
   // GET /tickets/admin/all (Admin/SuperAdmin)
   async getAllTickets() {
     const tickets = await this.prisma.ticket.findMany({

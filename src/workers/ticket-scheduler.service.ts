@@ -74,4 +74,43 @@ export class TicketSchedulerService {
       this.logger.error('❌ AUTOMATION WORKER EXCEPTION:', error.stack || error.message);
     }
   }
+
+  @Cron('* * * * *')
+  async restoreSnoozedTickets() {
+    try {
+      const now = new Date();
+      
+      const expiredTickets = await this.prisma.ticket.findMany({
+        where: {
+          status: 'TEMPORARILY_CLOSED',
+          snoozedUntil: {
+            lte: now
+          },
+          NOT: {
+            snoozedUntil: null
+          }
+        }
+      });
+
+      if (expiredTickets.length === 0) return;
+
+      this.logger.log(`⏳ Found ${expiredTickets.length} snoozed tickets ready to wake up.`);
+
+      for (const ticket of expiredTickets) {
+        await this.prisma.ticket.update({
+          where: { id: ticket.id },
+          data: {
+            status: (ticket.preSnoozeStatus as any) || 'OPEN',
+            snoozedUntil: null,
+            snoozedAt: null,
+            preSnoozeStatus: null,
+          }
+        });
+
+        this.logger.log(`⏰ Woke up Ticket #${ticket.ticketSeq} (ID: ${ticket.id}). Restored to active queues.`);
+      }
+    } catch (error) {
+      this.logger.error('❌ SNOOZE RESTORATION WORKER EXCEPTION:', error.stack || error.message);
+    }
+  }
 }

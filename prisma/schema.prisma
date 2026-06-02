@@ -32,6 +32,7 @@ enum TicketStatus {
   ON_HOLD
   UNDER_OBSERVATION
   RESOLVED
+  TEMPORARILY_CLOSED
 }
 
 enum SubStatus {
@@ -178,6 +179,11 @@ model Ticket {
   isArchived     Boolean   @default(false)
   archivedAt     DateTime?
   slaTimerActive Boolean   @default(true)
+
+  // Snooze Logic
+  preSnoozeStatus String?
+  snoozedAt       DateTime?
+  snoozedUntil    DateTime?
   closedBy       String?
 
   attachments Attachment[]

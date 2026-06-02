@@ -10,6 +10,10 @@ import { ScheduleTicketModal } from './ScheduleTicketModal';
 import { MergeTicketsModal } from './MergeTicketsModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV2';
+import { TimePicker } from '@mui/x-date-pickers/TimePicker';
+import { TextField } from '@mui/material';
 
 
 export const AdminTicketsQueue: React.FC = () => {
@@ -50,11 +54,38 @@ export const AdminTicketsQueue: React.FC = () => {
   const [isCoreDataModalOpen, setIsCoreDataModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+  const [isSnoozeModalOpen, setIsSnoozeModalOpen] = useState(false);
+  const [returnDate, setReturnDate] = useState("");
+  const [returnTime, setReturnTime] = useState<Date | null>(new Date());
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [replyText, setReplyText] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isStatusPopoverOpen, setIsStatusPopoverOpen] = useState(false);
   const statusPopoverRef = useRef<HTMLDivElement>(null);
+
+  const handleSnoozeSubmit = async () => {
+    if (!selectedTicket || !returnDate || !returnTime) return;
+
+    // Combine chosen date elements with explicit hours/minutes selections
+    const combinedTimestamp = new Date(returnDate);
+    combinedTimestamp.setHours(returnTime.getHours());
+    combinedTimestamp.setMinutes(returnTime.getMinutes());
+    combinedTimestamp.setSeconds(0);
+
+    try {
+      const res = await api.patch(`/tickets/${selectedTicket.id}/temporary-closure`, {
+        snoozedUntil: combinedTimestamp.toISOString() // 🔗 Dispatches precise timestamp to database
+      });
+      setSelectedTicket(null); // or update to res.data if keeping modal open
+      setIsSnoozeModalOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['activeTicketsList'] });
+      setToast({ message: 'Ticket successfully snoozed', type: 'success' });
+    } catch (err) {
+      console.error("❌ Failed to commit snooze parameters:", err);
+      setToast({ message: 'Failed to snooze ticket', type: 'error' });
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -1131,6 +1162,18 @@ export const AdminTicketsQueue: React.FC = () => {
                   >
                     <span>🔗</span> Merge
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsSnoozeModalOpen(true)}
+                    className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 font-bold text-[10px] rounded-lg transition-all flex items-center gap-1.5 uppercase tracking-wider shadow-sm"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    Snooze Asset
+                  </button>
                 </div>
               </div>
 
@@ -1985,6 +2028,83 @@ export const AdminTicketsQueue: React.FC = () => {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+      {/* Snooze Modal Overlay */}
+      {isSnoozeModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          {/* Dark Backdrop Blur Overlay */}
+          <div className="absolute inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm" onClick={() => setIsSnoozeModalOpen(false)} />
+
+          {/* Center Screen Dialog Box */}
+          <div className="relative w-full max-w-sm transform overflow-hidden rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200 dark:border-slate-800 p-6 shadow-2xl flex flex-col gap-4 animate-in fade-in">
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                Temporary Closure Specification
+              </h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                This ticket will transition to SNOOZED status and move out of active queues until the target hardware loan return timeline expires.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black tracking-wider text-slate-700 dark:text-slate-400 uppercase">
+                Expected Return Date
+              </label>
+              <input
+                type="date"
+                value={returnDate}
+                onChange={(e) => setReturnDate(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-amber-500 transition-colors"
+              />
+            </div>
+
+            {/* 🕒 NEW: MUI Time Picker Field Container */}
+            <div className="flex flex-col gap-1.5 mt-2">
+              <label className="text-[10px] font-black tracking-wider text-slate-700 dark:text-slate-400 uppercase">
+                Exact Re-awakening Time
+              </label>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <TimePicker
+                  value={returnTime}
+                  onChange={(newValue) => setReturnTime(newValue)}
+                  slotProps={{
+                    textField: {
+                      size: 'small',
+                      fullWidth: true,
+                      sx: {
+                        '& .MuiOutlinedInput-root': {
+                          backgroundColor: 'var(--tw-bg-opacity)',
+                          borderRadius: '0.75rem',
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          fontFamily: 'inherit',
+                        }
+                      }
+                    }
+                  }}
+                />
+              </LocalizationProvider>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 w-full mt-2">
+              <button
+                type="button"
+                onClick={() => setIsSnoozeModalOpen(false)}
+                className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl uppercase"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSnoozeSubmit}
+                disabled={!returnDate}
+                className="w-full px-4 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-black text-xs rounded-xl uppercase transition-colors"
+              >
+                Confirm Snooze
+              </button>
+            </div>
           </div>
         </div>
       )}

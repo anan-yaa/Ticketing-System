@@ -113,6 +113,18 @@ export class TicketsController {
     return this.ticketsService.closeTicket(id, req.user.userId);
   }
 
+  @Patch(':id/temporary-closure')
+  @Permissions('TICKET_UPDATE')
+  async temporaryClosure(
+    @Param('id') id: string,
+    @Body('snoozedUntil') snoozedUntil: string,
+  ) {
+    if (!snoozedUntil) {
+      throw new BadRequestException('snoozedUntil date string is required for temporary closure');
+    }
+    return this.ticketsService.processTemporaryClosure(id, snoozedUntil);
+  }
+
   @Post(':id/messages')
   @Permissions('TICKET_VIEW')
   async addMessage(
