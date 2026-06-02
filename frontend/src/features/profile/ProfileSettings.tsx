@@ -17,6 +17,7 @@ import {
 } from '../../api/users';
 import { RoleManagementPage } from '../admin/RoleManagementPage';
 import { MasterDataConfig } from '../admin/MasterDataConfig';
+import { ScheduledTasksTab } from '../settings/ScheduledTasksTab';
 
 // Simple Toast Component
 const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => {
@@ -46,7 +47,7 @@ const ProfileSettings: React.FC = () => {
   const queryClient = useQueryClient();
 
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState<'personal' | 'security' | 'directory' | 'roles' | 'audit' | 'master-config'>(
+  const [activeTab, setActiveTab] = useState<'personal' | 'security' | 'directory' | 'roles' | 'audit' | 'master-config' | 'scheduled-tasks'>(
     (location.state as any)?.tab || 'personal'
   );
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -268,6 +269,18 @@ const ProfileSettings: React.FC = () => {
                 }`}
             >
               Master Data Config
+            </button>
+          )}
+
+          {showMasterConfig && (
+            <button
+              onClick={() => setActiveTab('scheduled-tasks')}
+              className={`px-5 py-2.5 font-mono text-xs uppercase tracking-widest transition-all rounded-xl border ${activeTab === 'scheduled-tasks'
+                ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-white/5'
+                }`}
+            >
+              📅 Scheduled Tasks
             </button>
           )}
         </div>
@@ -567,6 +580,12 @@ const ProfileSettings: React.FC = () => {
 
           {showMasterConfig && activeTab === 'master-config' && (
             <MasterDataConfig />
+          )}
+
+          {showMasterConfig && activeTab === 'scheduled-tasks' && (
+            <div className="animate-in fade-in duration-300">
+              <ScheduledTasksTab />
+            </div>
           )}
         </div>
       </div>

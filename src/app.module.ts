@@ -7,6 +7,8 @@ import { TicketsModule } from './tickets/tickets.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { RolesModule } from './roles/roles.module';
 import { MasterConfigModule } from './master-config/master-config.module';
+import { WorkersModule } from './workers/workers.module';
+import { ScheduledTasksModule } from './scheduled-tasks/scheduled-tasks.module';
 
 import { ScheduleModule } from '@nestjs/schedule';
 
@@ -20,7 +22,9 @@ import { ScheduleModule } from '@nestjs/schedule';
     TicketsModule,
     AuditLogModule,
     RolesModule,
-    MasterConfigModule
+    MasterConfigModule,
+    WorkersModule,
+    ScheduledTasksModule
   ],
 })
 export class AppModule {}

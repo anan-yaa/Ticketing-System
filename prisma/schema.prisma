@@ -307,3 +307,17 @@ model SlaTier {
   slaRuleId   String
   slaRule     SlaRule  @relation(fields: [slaRuleId], references: [id], onDelete: Cascade)
 }
+
+model ScheduledTask {
+  id           String   @id @default(uuid())
+  title        String
+  subject      String
+  instructions String   @db.Text
+  dayOfMonth   Int      // 1 through 31
+  hour         Int      // 0 through 23
+  minute       Int      // 0 through 59
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+

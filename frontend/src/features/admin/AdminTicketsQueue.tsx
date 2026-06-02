@@ -588,7 +588,7 @@ export const AdminTicketsQueue: React.FC = () => {
               : "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white transition-all duration-200 w-full"
             }
           >
-            <span className="flex-1 text-left">Open Queue</span>
+            <span className="flex-1 text-left">Incoming Queue</span>
             <span className={`transform transition-transform duration-200 text-[10px] ${isExpanded ? 'rotate-90' : 'rotate-0'}`}>
               ▼
             </span>
@@ -1952,7 +1952,7 @@ export const AdminTicketsQueue: React.FC = () => {
 
               {/* Search Parameter 4: Ticket Subject Line (Full-width row) */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-black tracking-wider text-slate-400 dark:text-slate-500 uppercase">Ticket Subject / Title Keywords</label>
+                <label className="text-[10px] font-black tracking-wider text-slate-400 dark:text-slate-500 uppercase">Ticket Subject</label>
                 <input
                   type="text"
                   value={searchSubject}
