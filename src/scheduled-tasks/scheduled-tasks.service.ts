@@ -6,8 +6,14 @@ export class ScheduledTasksService {
   constructor(private prisma: PrismaService) {}
 
   async findAll() {
+    // 🔗 THE FIX: Explicitly include masterCategory properties so the UI can render category names
     return this.prisma.scheduledTask.findMany({
-      orderBy: { createdAt: 'desc' }
+      include: {
+        masterCategory: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
   }
 
@@ -17,10 +23,15 @@ export class ScheduledTasksService {
         title: data.title,
         subject: data.subject,
         instructions: data.instructions,
-        dayOfMonth: parseInt(data.dayOfMonth, 10),
-        hour: parseInt(data.hour, 10),
-        minute: parseInt(data.minute, 10),
-        isActive: data.isActive !== undefined ? data.isActive : true,
+        dayOfMonth: Number(data.dayOfMonth),
+        hour: Number(data.hour),
+        minute: Number(data.minute),
+        isActive: data.isActive ?? true,
+
+        // 🔗 THE CRITICAL FIX: Explicitly connect the mandatory foreign key relation
+        masterCategory: {
+          connect: { id: data.masterCategoryId }
+        }
       }
     });
   }

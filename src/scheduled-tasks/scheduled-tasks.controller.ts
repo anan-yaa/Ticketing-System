@@ -13,8 +13,9 @@ export class ScheduledTasksController {
   }
 
   @Post()
-  create(@Body() data: any) {
-    return this.scheduledTasksService.create(data);
+  async createAutomationBlueprint(@Body() payload: any) {
+    // Passes processing safely to our database service layer mapping hooks
+    return this.scheduledTasksService.create(payload);
   }
 
   @Delete(':id')

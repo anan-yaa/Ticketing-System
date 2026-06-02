@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Logger } from '@nestjs/common';
 import { MasterConfigService } from './master-config.service';
 import { CreateConfigDto } from './dto/create-config.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -8,12 +8,15 @@ import { Permissions } from '../common/decorators/permissions.decorator';
 @Controller('master-config')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class MasterConfigController {
+  private readonly logger = new Logger(MasterConfigController.name);
   constructor(private readonly configService: MasterConfigService) {}
 
-  // Categories
+  // Categories — no @Permissions() needed: PermissionsGuard passes when no decorator is present
   @Get('categories')
   async getCategories(@Query('activeOnly') activeOnly?: string) {
-    return this.configService.getCategories(activeOnly === 'true');
+    const data = await this.configService.getCategories(activeOnly === 'true');
+    this.logger.log(`📦 GET /master-config/categories → returned ${data.length} records`);
+    return data;
   }
 
   @Post('categories')

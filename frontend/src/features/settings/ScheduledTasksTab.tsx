@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/axios';
+import { useAuth } from '../../context/AuthContext';
 import dayjs, { Dayjs } from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -8,6 +9,7 @@ import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 
 export const ScheduledTasksTab: React.FC = () => {
   const queryClient = useQueryClient();
+  const { token } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [taskToConfirmDelete, setTaskToConfirmDelete] = React.useState<{ id: string; title: string } | null>(null);
   const [executionTimeMui, setExecutionTimeMui] = useState<Dayjs | null>(dayjs('2026-06-01T12:00:00'));
@@ -17,6 +19,24 @@ export const ScheduledTasksTab: React.FC = () => {
     subject: '',
     instructions: ''
   });
+
+  const [selectedCategoryId, setSelectedCategoryId] = React.useState("");
+
+  // Fetch categories — reads token directly from storage, no context timing dependency
+  const { data: categoriesData } = useQuery({
+    queryKey: ['masterCategories'],
+    queryFn: async () => {
+      const t = localStorage.getItem('jwt_token');
+      if (!t) throw new Error('No token');
+      const res = await api.get('/master-config/categories', {
+        headers: { Authorization: `Bearer ${t}` }
+      });
+      return Array.isArray(res.data) ? res.data : res.data?.data || [];
+    },
+    retry: 3,
+    retryDelay: 1000,
+  });
+
 
   const { data: tasksData, isLoading } = useQuery({
     queryKey: ['scheduledTasks'],
@@ -48,6 +68,7 @@ export const ScheduledTasksTab: React.FC = () => {
         subject: '',
         instructions: ''
       });
+      setSelectedCategoryId("");
     }
   });
 
@@ -78,6 +99,7 @@ export const ScheduledTasksTab: React.FC = () => {
     const formattedTimeForBackend = executionTimeMui ? executionTimeMui.format('HH:mm') : '00:00';
     const payload = {
       ...formData,
+      masterCategoryId: selectedCategoryId,
       dayOfMonth: formData.executionDate ? parseInt(formData.executionDate.split('-')[2], 10) : 1,
       hour: parseInt(formattedTimeForBackend.split(':')[0], 10),
       minute: parseInt(formattedTimeForBackend.split(':')[1], 10),
@@ -222,6 +244,32 @@ export const ScheduledTasksTab: React.FC = () => {
                     Ticket Subject
                   </label>
                   <input required type="text" value={formData.subject} onChange={e => setFormData({ ...formData, subject: e.target.value })} className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-sky-500 focus:outline-none transition-colors" placeholder="e.g. Monthly System Maintenance" />
+                </div>
+
+                <div className="flex flex-col gap-1.5 mt-4">
+                  <label className="text-[10px] font-black tracking-wider text-slate-700 dark:text-slate-400 uppercase">
+                    Assign Ticket Category
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedCategoryId}
+                      onChange={(e) => setSelectedCategoryId(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-sky-500 transition-colors appearance-none cursor-pointer"
+                    >
+                      <option value="">-- SELECT CATEGORY --</option>
+                      {(categoriesData || []).map((cat: any) => (
+                        <option key={cat.id} value={cat.id} className="bg-white dark:bg-slate-900">
+                          {String(cat.name).toUpperCase()}
+                        </option>
+                      ))}
+                    </select>
+
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                      </svg>
+                    </div>
+                  </div>
                 </div>
 
                 <div>

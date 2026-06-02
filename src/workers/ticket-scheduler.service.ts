@@ -8,87 +8,67 @@ export class TicketSchedulerService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  @Cron('* * * * *') // 👈 Wakes up every minute to check for exact recurring times
+  @Cron('* * * * *')
   async handleRecurringTickets() {
     const now = new Date();
     const currentDay = now.getDate();
     const currentHour = now.getHours();
-    const currentMinute = now.getMinutes(); // 👈 Extract exact minute
+    const currentMinute = now.getMinutes();
 
     try {
-      // Query tasks matching the day of the month, hour, and the precise minute
+      // 🔍 THE FIX: Clean query filtering without the old dead text category column
       const matchingTasks = await this.prisma.scheduledTask.findMany({
         where: {
           dayOfMonth: currentDay,
           hour: currentHour,
-          minute: currentMinute, // 👈 Ensures minutes like :17 are not skipped
+          minute: currentMinute,
           isActive: true,
         },
+        include: {
+          masterCategory: true // 👈 Dynamic load of the real linked table entity properties
+        }
       });
 
       if (matchingTasks.length === 0) return;
 
-      this.logger.log(`🎯 Found ${matchingTasks.length} recurring blueprints to run at ${currentHour}:${currentMinute}`);
+      this.logger.log(`🎯 Found ${matchingTasks.length} recurring blueprints to run.`);
 
       for (const task of matchingTasks) {
-        // 🔍 TARGET SUPER_ADMIN FOR SYSTEM AUTOMATIONS USING EXACT PRISMA ENUMS
-        let fallbackUser = await this.prisma.user.findFirst({
-          where: {
-            OR: [
-              { systemRole: 'SUPER_ADMIN' },
-              { role: { name: 'SUPER_ADMIN' } } // Fallback relation if roles are in a joined table
-            ]
-          }
+        const fallbackUser = await this.prisma.user.findFirst({
+          where: { systemRole: 'SUPER_ADMIN' }
         });
 
-        // 1st Fallback: If no explicit SUPER_ADMIN is caught, look for type-safe uppercase ADMIN
         if (!fallbackUser) {
-          fallbackUser = await this.prisma.user.findFirst({
-            where: {
-              systemRole: 'ADMIN'
-            }
-          });
-        }
-
-        // 2nd Fallback: Grab the absolute first record available in the User table so it never fails
-        if (!fallbackUser) {
-          fallbackUser = await this.prisma.user.findFirst();
-        }
-
-        // Emergency safety boundary if the database user environment is completely empty
-        if (!fallbackUser) {
-          this.logger.error('❌ CRITICAL: Automation skipped. The database User table is entirely empty.');
+          this.logger.error('❌ Skipping execution: No SUPER_ADMIN found to link relation.');
           continue;
         }
 
-        this.logger.log(`🔗 Binding automation ticket to User ID: ${fallbackUser.id} [${fallbackUser.systemRole || 'SYSTEM'}]`);
-
-        // Create a recurring copy inside the main open tracking queues
         await this.prisma.ticket.create({
           data: {
             title: task.title,
             description: task.instructions,
             status: 'OPEN',
             priority: 'MEDIUM',
-            category: 'MAINTENANCE',
             source: 'SYSTEM',
             createdAt: now,
             
-            // SLA telemetry - required by strict schema constraints
+            // 🔗 Pull categorization cleanly directly from the linked master record name 
+            category: task.masterCategory?.name || 'GENERAL',
+
+            // Restore mandatory SLA telemetry fields 
             slaDeadline: new Date(now.getTime() + 24 * 60 * 60 * 1000), 
             ttfrDeadline: new Date(now.getTime() + 4 * 60 * 60 * 1000),
             resolutionDeadline: new Date(now.getTime() + 48 * 60 * 60 * 1000),
             responseTargetMinutes: 240,
             resolutionTargetMinutes: 2880,
 
-            // Connect the mandatory user relation
             customer: {
               connect: { id: fallbackUser.id }
             }
           },
         });
 
-        this.logger.log(`✅ Recurring ticket spawned into dashboard queue: "${task.title}"`);
+        this.logger.log(`✅ Automated Ticket Instantiated: "${task.title}" under Category [${task.masterCategory?.name}]`);
       }
     } catch (error) {
       this.logger.error('❌ AUTOMATION WORKER EXCEPTION:', error.stack || error.message);

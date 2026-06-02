@@ -173,14 +173,14 @@ model Ticket {
 
   scheduledAt      DateTime?
   schedulingReason String?
-  
-  // Automation and Archive Flags
-  isArchived       Boolean   @default(false)
-  archivedAt       DateTime?
-  slaTimerActive   Boolean   @default(true)
-  closedBy         String?
 
-  attachments      Attachment[]
+  // Automation and Archive Flags
+  isArchived     Boolean   @default(false)
+  archivedAt     DateTime?
+  slaTimerActive Boolean   @default(true)
+  closedBy       String?
+
+  attachments Attachment[]
 
   parentId String?
   parent   Ticket?  @relation("TicketToTicket", fields: [parentId], references: [id])
@@ -227,12 +227,13 @@ model AuditLog {
 }
 
 model MasterCategory {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String          @id @default(uuid())
+  name           String          @unique
+  description    String?
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  scheduledTasks ScheduledTask[]
 }
 
 model MasterType {
@@ -286,38 +287,42 @@ model SlaMatrix {
 }
 
 model SlaRule {
-  id           String    @id @default(uuid())
-  ticketType   String    @unique
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  tiers        SlaTier[]
+  id         String    @id @default(uuid())
+  ticketType String    @unique
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  tiers      SlaTier[]
 }
 
 model SlaTier {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   level       String
   name        String
   description String?
-  respH       Int      @default(0)
-  respM       Int      @default(0)
-  resH        Int      @default(0)
-  resM        Int      @default(0)
-  isActive    Boolean  @default(true)
+  respH       Int     @default(0)
+  respM       Int     @default(0)
+  resH        Int     @default(0)
+  resM        Int     @default(0)
+  isActive    Boolean @default(true)
   slaRuleId   String
-  slaRule     SlaRule  @relation(fields: [slaRuleId], references: [id], onDelete: Cascade)
+  slaRule     SlaRule @relation(fields: [slaRuleId], references: [id], onDelete: Cascade)
 }
 
 model ScheduledTask {
-  id           String   @id @default(uuid())
+  id           String  @id @default(uuid())
   title        String
   subject      String
-  instructions String   @db.Text
-  dayOfMonth   Int      // 1 through 31
-  hour         Int      // 0 through 23
-  minute       Int      // 0 through 59
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
+  instructions String  @db.Text
+  dayOfMonth   Int
+  hour         Int
+  minute       Int
+  isActive     Boolean @default(true)
 
+  // 🔗 Dynamic Relational Link to MasterCategory Table
+  masterCategoryId String
+  masterCategory   MasterCategory @relation(fields: [masterCategoryId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
