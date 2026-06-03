@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TicketPriority, TicketStatus, SubStatus, CommentType } from '@prisma/client';
 import { CreateTicketDto } from './dto/create-ticket.dto';
@@ -8,6 +8,8 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class TicketsService {
+  private readonly logger = new Logger(TicketsService.name);
+
   constructor(
     private prisma: PrismaService,
     private slaService: SlaService,
@@ -21,6 +23,7 @@ export class TicketsService {
       },
       customer: { select: { name: true, email: true } },
       attachments: true,
+      masterStatus: true,
     };
 
     // Handle 'T007' format — strip prefix and look up by ticketSeq
@@ -391,54 +394,115 @@ export class TicketsService {
     if (!ticket) throw new NotFoundException('Ticket not found');
 
     const updateData: any = {};
+    let masterStatus = null;
+    
+    // Determine which status to query: the new one being passed in, or the existing one
+    const statusIdentifier = status || ticket.statusId || ticket.status;
+
+    if (statusIdentifier) {
+      // 1. LOOK UP STATUS BEHAVIORS
+      masterStatus = await this.prisma.masterStatus.findFirst({
+        where: {
+          OR: [
+            { id: statusIdentifier },
+            { name: statusIdentifier }
+          ]
+        }
+      });
+    }
+
+    if (status) {
+      if (masterStatus) {
+        // 3. ADAPTIVE LOGIC FOR NEW CUSTOM STATUSES
+        updateData.statusId = masterStatus.id;
+        updateData.status = masterStatus.name as TicketStatus;
+      } else {
+        updateData.status = status as TicketStatus;
+      }
+      
+      // If status is OPEN or CLOSED, clear subStatus for legacy compatibility
+      if (updateData.status === 'OPEN' || updateData.status === 'CLOSED') {
+        updateData.subStatus = SubStatus.NONE;
+      }
+    }
 
     // Process subStatus if provided
     if (subStatus) {
       updateData.subStatus = subStatus as SubStatus;
-      // Force status to IN_PROGRESS if subStatus is set (unless it's NONE, then we might just be clearing it)
-      if (subStatus !== 'NONE') {
+      if (subStatus !== 'NONE' && !status) {
         updateData.status = TicketStatus.IN_PROGRESS;
-      }
-    }
-
-    if (status) {
-      updateData.status = status as TicketStatus;
-      // If status is OPEN or CLOSED, clear subStatus
-      if (status === 'OPEN' || status === 'CLOSED') {
-        updateData.subStatus = SubStatus.NONE;
       }
     }
 
     const finalStatus = updateData.status || ticket.status;
     const finalSubStatus = updateData.subStatus !== undefined ? updateData.subStatus : ticket.subStatus;
     
-    // Automation: stop SLA timers and archive if RESOLVED
-    if (finalStatus === 'RESOLVED') {
-      updateData.isArchived = true;
-      updateData.archivedAt = new Date();
-      updateData.slaTimerActive = false;
-    } else {
-      updateData.slaTimerActive = true;
-      updateData.isArchived = false;
-      updateData.archivedAt = null;
-    }
-    
-    const PAUSED_STATES = ['WAITING_FOR_APPROVAL', 'WAITING_FOR_VENDOR', 'WAITING_FOR_CUSTOMER', 'ON_HOLD'];
-    const isPausedNow = PAUSED_STATES.includes(finalSubStatus) && finalStatus !== 'CLOSED';
-
-    if (isPausedNow && !ticket.lastPausedAt) {
-      updateData.lastPausedAt = new Date();
-    } else if (!isPausedNow && ticket.lastPausedAt) {
-      const now = new Date();
-      const pausedSeconds = Math.floor((now.getTime() - new Date(ticket.lastPausedAt).getTime()) / 1000);
-      updateData.accumulatedPausedTime = (ticket.accumulatedPausedTime || 0) + pausedSeconds;
-      updateData.lastPausedAt = null;
+    if (masterStatus) {
+      // 2. EXECUTE ARCHIVAL OR PAUSE LOGIC
       
-      if (ticket.slaDeadline) {
-        updateData.slaDeadline = new Date(new Date(ticket.slaDeadline).getTime() + pausedSeconds * 1000);
+      if (masterStatus.isArchived) {
+        updateData.isArchived = true;
+        updateData.archivedAt = new Date();
+        updateData.resolvedAt = new Date();
+        updateData.slaTimerActive = false;
+      } else {
+        updateData.slaTimerActive = true;
+        updateData.isArchived = false;
+        updateData.archivedAt = null;
+        updateData.resolvedAt = null;
       }
-      if (ticket.resolutionDeadline) {
-        updateData.resolutionDeadline = new Date(new Date(ticket.resolutionDeadline).getTime() + pausedSeconds * 1000);
+
+      if (masterStatus.isSlaPaused && !ticket.slaPausedAt) {
+        updateData.slaPausedAt = new Date();
+        updateData.lastPausedAt = new Date(); // Legacy compatibility
+      } else if (!masterStatus.isSlaPaused && ticket.slaPausedAt) {
+        const now = new Date();
+        const pausedSeconds = Math.floor((now.getTime() - new Date(ticket.slaPausedAt).getTime()) / 1000);
+        updateData.accumulatedPausedTime = (ticket.accumulatedPausedTime || 0) + pausedSeconds;
+        updateData.slaPausedAt = null;
+        updateData.lastPausedAt = null;
+        
+        if (ticket.slaDeadline) {
+          updateData.slaDeadline = new Date(new Date(ticket.slaDeadline).getTime() + pausedSeconds * 1000);
+        }
+        if (ticket.resolutionDeadline) {
+          updateData.resolutionDeadline = new Date(new Date(ticket.resolutionDeadline).getTime() + pausedSeconds * 1000);
+        }
+      }
+    } else {
+      // Legacy hardcoded logic fallback if no MasterStatus config is found
+      if (finalStatus === 'RESOLVED') {
+        updateData.isArchived = true;
+        updateData.archivedAt = new Date();
+        updateData.resolvedAt = new Date();
+        updateData.slaTimerActive = false;
+      } else {
+        updateData.slaTimerActive = true;
+        updateData.isArchived = false;
+        updateData.archivedAt = null;
+        updateData.resolvedAt = null;
+      }
+      
+      const PAUSED_STATES = ['WAITING_FOR_APPROVAL', 'WAITING_FOR_VENDOR', 'WAITING_FOR_CUSTOMER', 'ON_HOLD'];
+      const isPausedNow = PAUSED_STATES.includes(finalSubStatus) && finalStatus !== 'CLOSED';
+
+      if (isPausedNow && (!ticket.slaPausedAt && !ticket.lastPausedAt)) {
+        updateData.slaPausedAt = new Date();
+        updateData.lastPausedAt = new Date();
+      } else if (!isPausedNow && (ticket.slaPausedAt || ticket.lastPausedAt)) {
+        const pauseStart = ticket.slaPausedAt || ticket.lastPausedAt;
+        const now = new Date();
+        const pausedSeconds = Math.floor((now.getTime() - new Date(pauseStart).getTime()) / 1000);
+        updateData.accumulatedPausedTime = (ticket.accumulatedPausedTime || 0) + pausedSeconds;
+        updateData.slaPausedAt = null;
+        updateData.lastPausedAt = null;
+        
+        if (ticket.slaDeadline) {
+          updateData.slaDeadline = new Date(new Date(ticket.slaDeadline).getTime() + pausedSeconds * 1000);
+        }
+        if (ticket.resolutionDeadline) {
+          updateData.resolutionDeadline = new Date(new Date(ticket.resolutionDeadline).getTime() + pausedSeconds * 1000);
+        }
       }
     }
 
@@ -521,14 +585,24 @@ export class TicketsService {
   @Cron(CronExpression.EVERY_MINUTE)
   async checkScheduledTickets() {
     const now = new Date();
-    const ticketsToWake = await this.prisma.ticket.findMany({
-      where: {
-        status: TicketStatus.SCHEDULED,
-        executeAt: {
-          lte: now,
+    let ticketsToWake = [];
+
+    try {
+      ticketsToWake = await this.prisma.ticket.findMany({
+        where: {
+          OR: [
+            { status: 'SCHEDULED' as any },
+            { masterStatus: { name: 'SCHEDULED' } }
+          ],
+          executeAt: {
+            lte: now,
+          },
         },
-      },
-    });
+      });
+    } catch (error) {
+      console.error('❌ DB Schema Mismatch in Scheduled Tickets Worker:', error.message);
+      return; // Fail gracefully without crashing the NestJS context
+    }
 
     if (ticketsToWake.length === 0) return;
 
@@ -648,5 +722,65 @@ export class TicketsService {
 
       return updatedChild;
     });
+  }
+
+  // --- DATA LINKAGE MIGRATION SCRIPT ---
+  /**
+   * Temporary execution function / seeder method to sync existing string statuses 
+   * with their relational IDs now that statusId is the source of truth.
+   */
+  async migrateStatusIds() {
+    this.logger.log('Starting Status Data Linkage Migration...');
+    
+    // 1. READ ALL CURRENT STATUS ROWS
+    const masterStatuses = await this.prisma.masterStatus.findMany();
+    const statusMap = new Map<string, string>();
+    
+    for (const status of masterStatuses) {
+      statusMap.set(status.name.toUpperCase(), status.id);
+    }
+
+    // Fetch tickets that lack a relational binding
+    const unlinkedTickets = await this.prisma.ticket.findMany({
+      where: {
+        statusId: null
+      }
+    });
+
+    if (unlinkedTickets.length === 0) {
+      this.logger.log('All tickets are already linked. Migration skipped.');
+      return { status: 'success', message: 'All tickets are already fully linked.' };
+    }
+
+    this.logger.log(`Found ${unlinkedTickets.length} unlinked tickets. Beginning batch update...`);
+
+    let updatedCount = 0;
+    
+    // 2. RUN BULK LINKAGE TRANSITION
+    await this.prisma.$transaction(async (tx) => {
+      for (const ticket of unlinkedTickets) {
+        const rawStatus = ticket.status ? ticket.status.toString().toUpperCase() : 'OPEN';
+        let targetId = statusMap.get(rawStatus);
+        
+        // If exact match isn't found, try falling back to the default OPEN status
+        if (!targetId) {
+          targetId = statusMap.get('OPEN');
+        }
+
+        if (targetId) {
+          await tx.ticket.update({
+            where: { id: ticket.id },
+            data: { statusId: targetId }
+          });
+          updatedCount++;
+        }
+      }
+    });
+
+    this.logger.log(`✅ Data Migration Complete: Successfully linked ${updatedCount} tickets to MasterStatus IDs.`);
+    return { 
+      status: 'success', 
+      message: `Successfully linked ${updatedCount} tickets to relational MasterStatus keys.` 
+    };
   }
 }

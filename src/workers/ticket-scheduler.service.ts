@@ -80,17 +80,26 @@ export class TicketSchedulerService {
     try {
       const now = new Date();
       
-      const expiredTickets = await this.prisma.ticket.findMany({
-        where: {
-          status: 'TEMPORARILY_CLOSED',
-          snoozedUntil: {
-            lte: now
-          },
-          NOT: {
-            snoozedUntil: null
+      let expiredTickets = [];
+      try {
+        expiredTickets = await this.prisma.ticket.findMany({
+          where: {
+            OR: [
+              { status: 'TEMPORARILY_CLOSED' as any },
+              { masterStatus: { name: 'TEMPORARILY_CLOSED' } }
+            ],
+            snoozedUntil: {
+              lte: now
+            },
+            NOT: {
+              snoozedUntil: null
+            }
           }
-        }
-      });
+        });
+      } catch (error) {
+        this.logger.error('❌ DB Schema Mismatch in Snoozed Wakeup Worker:', error.message);
+        return;
+      }
 
       if (expiredTickets.length === 0) return;
 
@@ -111,6 +120,71 @@ export class TicketSchedulerService {
       }
     } catch (error) {
       this.logger.error('❌ SNOOZE RESTORATION WORKER EXCEPTION:', error.stack || error.message);
+    }
+  }
+  @Cron('* * * * *')
+  async monitorSlaBreaches() {
+    try {
+      // LOAD TICKETS WITH STATUS FLAG METADATA
+      const activeTickets = await this.prisma.ticket.findMany({
+        where: {
+          resolvedAt: null, // Only scan active tickets
+          slaTimerActive: true,
+          isArchived: false
+        },
+        include: {
+          masterStatus: true // Crucial: brings in our isSlaPaused flag
+        }
+      });
+
+      if (activeTickets.length === 0) return;
+
+      const now = new Date();
+      let breachedCount = 0;
+
+      for (const ticket of activeTickets) {
+        // Skip tickets currently sitting in a paused or archived MasterStatus state
+        if (ticket.masterStatus?.isSlaPaused || ticket.masterStatus?.isArchived) {
+          continue;
+        }
+        
+        // Also skip if legacy string-based ON_HOLD logic applies but no masterStatus is defined
+        if (!ticket.masterStatus && ticket.status === 'ON_HOLD') {
+          continue;
+        }
+
+        const updateData: any = {};
+        
+        // 1. Time to First Response (TTFR) Check
+        if (ticket.ttfrDeadline && now > ticket.ttfrDeadline && !ticket.isTtfrBreached && !ticket.firstRespondedAt) {
+          updateData.isTtfrBreached = true;
+        }
+
+        // 2. Main Resolution SLA Check
+        if (ticket.resolutionDeadline && now > ticket.resolutionDeadline && !ticket.isResolutionBreached) {
+          updateData.isResolutionBreached = true;
+        }
+        
+        // 3. Legacy General SLA Check
+        if (ticket.slaDeadline && now > ticket.slaDeadline && !ticket.isSlaBreached) {
+          updateData.isSlaBreached = true;
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          await this.prisma.ticket.update({
+            where: { id: ticket.id },
+            data: updateData
+          });
+          breachedCount++;
+          this.logger.warn(`⚠️ SLA Threshold Breached -> Ticket #${ticket.ticketSeq} (ID: ${ticket.id})`);
+        }
+      }
+      
+      if (breachedCount > 0) {
+        this.logger.log(`⏰ SLA Monitor completed. Flagged ${breachedCount} tickets for breaches.`);
+      }
+    } catch (error) {
+      this.logger.error('❌ SLA MONITORING WORKER EXCEPTION:', error.stack || error.message);
     }
   }
 }

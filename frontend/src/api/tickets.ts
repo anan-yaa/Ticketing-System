@@ -5,6 +5,21 @@ export interface Ticket {
   title: string;
   description: string;
   status: 'OPEN' | 'IN_PROGRESS' | 'CLOSED' | string;
+  
+  // 🔗 New Relational Layout Properties
+  statusId?: string; 
+  masterStatus?: {
+    id: string;
+    name: string;
+    description?: string;
+    isSlaPaused: boolean;
+    isArchived: boolean;
+  };
+  
+  // SLA tracking fields
+  slaPausedAt?: string | null;
+  resolvedAt?: string | null;
+
   subStatus?: string;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' | string;
   category?: string;

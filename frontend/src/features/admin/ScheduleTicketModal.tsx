@@ -41,56 +41,59 @@ export const ScheduleTicketModal: React.FC<ScheduleTicketModalProps> = ({ isOpen
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-md p-4 transition-all duration-300 ease-out">
-      <div className="bg-slate-950 border border-white/10 rounded-3xl w-full max-w-lg shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden animate-in zoom-in-95 duration-300">
-        <div className="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-white tracking-widest uppercase flex items-center gap-2">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 dark:bg-slate-950/40 backdrop-blur-md p-4 transition-all duration-300 ease-out">
+      <div className="relative w-full max-w-sm transform overflow-hidden rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200 dark:border-slate-800 p-6 shadow-2xl transition-colors duration-200 flex flex-col gap-4 animate-in zoom-in-95">
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-widest uppercase flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"></span>
             Schedule Ticket
           </h2>
           <button
             onClick={onClose}
-            className="text-slate-500 hover:text-white transition-colors"
+            className="text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"
           >
             ✕
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
-          <div>
-            <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Execution Timestamp</label>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-black tracking-wider text-slate-700 dark:text-slate-400 uppercase">Execution Timestamp</label>
             <input
               required
               type="datetime-local"
               value={selectedDateTime}
               onChange={(e) => setSelectedDateTime(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-cyan-400 outline-none transition-all font-mono text-sm shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]"
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 rounded-xl p-2.5 text-xs font-bold focus:outline-none placeholder:text-slate-400 transition-colors"
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Wake-up Action Note</label>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-black tracking-wider text-slate-700 dark:text-slate-400 uppercase">Wake-up Action Note</label>
             <textarea
               rows={3}
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-cyan-400 outline-none transition-all font-mono text-sm resize-none shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]"
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 rounded-xl p-2.5 text-xs font-bold focus:outline-none placeholder:text-slate-400 transition-colors resize-none"
               placeholder="E.g., Follow up with vendor regarding RMA..."
             />
           </div>
 
-          <div className="pt-4 flex justify-end gap-3 border-t border-white/5">
+          <div className="flex items-center justify-end gap-3 w-full mt-2 pt-3 border-t border-slate-100 dark:border-slate-800/60">
+            {/* CANCEL */}
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-2 rounded-xl text-slate-400 hover:text-white font-mono text-xs uppercase tracking-widest transition-colors"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[11px] rounded-xl uppercase tracking-wider transition-colors"
             >
               Cancel
             </button>
+
+            {/* SET TIMER */}
             <button
               type="submit"
               disabled={isSubmitting || !selectedDateTime}
-              className="px-6 py-2 bg-cyan-500/20 hover:bg-cyan-500 text-cyan-300 hover:text-white border border-cyan-500/50 hover:border-cyan-400 rounded-xl font-bold font-mono text-xs uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:shadow-[0_0_25px_rgba(6,182,212,0.6)] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-sky-600 hover:bg-sky-700 disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:bg-slate-800/50 dark:disabled:text-slate-600 text-white font-black text-[11px] rounded-xl uppercase tracking-wider transition-all shadow-sm shadow-sky-500/10"
             >
               {isSubmitting ? 'Scheduling...' : 'Set Timer'}
             </button>

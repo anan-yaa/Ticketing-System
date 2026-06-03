@@ -124,6 +124,8 @@ model Ticket {
   title         String
   description   String
   status        TicketStatus
+  statusId      String?
+  masterStatus  MasterStatus?  @relation(fields: [statusId], references: [id])
   subStatus     SubStatus      @default(NONE)
   priority      TicketPriority
   category      String?
@@ -161,6 +163,7 @@ model Ticket {
   cronExpression String?
 
   // SLA Pause tracking
+  slaPausedAt           DateTime?
   lastPausedAt          DateTime?
   accumulatedPausedTime Int?      @default(0)
   resolutionDeadline    DateTime
@@ -184,7 +187,8 @@ model Ticket {
   preSnoozeStatus String?
   snoozedAt       DateTime?
   snoozedUntil    DateTime?
-  closedBy       String?
+  resolvedAt      DateTime?
+  closedBy        String?
 
   attachments Attachment[]
 
@@ -257,8 +261,12 @@ model MasterStatus {
   label       String
   description String?
   isActive    Boolean  @default(true)
+  isSlaPaused Boolean  @default(false)
+  isArchived  Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  tickets Ticket[]
 }
 
 model ServiceContract {

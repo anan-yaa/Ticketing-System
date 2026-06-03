@@ -32,6 +32,8 @@ export const MasterDataConfig: React.FC = () => {
 
   const [newStatusLabel, setNewStatusLabel] = useState('');
   const [newStatusDesc, setNewStatusDesc] = useState('');
+  const [isSlaPaused, setIsSlaPaused] = useState<boolean>(false);
+  const [isArchived, setIsArchived] = useState<boolean>(false);
 
 
   const { data: services = [], isLoading: loadingServices } = useQuery<ConfigItem[]>({
@@ -172,13 +174,15 @@ export const MasterDataConfig: React.FC = () => {
   });
 
   const createStatusMutation = useMutation({
-    mutationFn: async (data: { name: string; label: string; description?: string }) => {
+    mutationFn: async (data: { name: string; label: string; description?: string; isSlaPaused: boolean; isArchived: boolean }) => {
       return api.post('/master-config/statuses', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['master-statuses'] });
       setNewStatusLabel('');
       setNewStatusDesc('');
+      setIsSlaPaused(false);
+      setIsArchived(false);
       setIsAddStatusModalOpen(false);
       showToast('Status added successfully', 'success');
     },
@@ -196,7 +200,7 @@ export const MasterDataConfig: React.FC = () => {
     const description = newStatusDesc.trim() || undefined;
 
     try {
-      await createStatusMutation.mutateAsync({ name, label, description });
+      await createStatusMutation.mutateAsync({ name, label, description, isSlaPaused, isArchived });
     } catch (netErr: any) {
       console.error(netErr);
     }
@@ -341,18 +345,13 @@ export const MasterDataConfig: React.FC = () => {
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={() => toggleTypeMutation.mutate(t.id)}
-                      className={`relative inline-flex items-center h-5 rounded-full w-9 transition-colors focus:outline-none shadow-[0_0_10px_rgba(0,0,0,0.5)] flex-shrink-0 ${t.isActive !== false
-                        ? 'bg-emerald-500/20 border border-emerald-500/50'
-                        : 'bg-rose-500/10 border border-rose-500/30'
+                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${t.isActive !== false ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
                         }`}
                     >
-                      <span
-                        className={`${t.isActive !== false
-                          ? 'translate-x-4 bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]'
-                          : 'translate-x-1 bg-rose-500/50'
-                          } inline-block w-3.5 h-3.5 transform rounded-full transition-transform`}
-                      />
+                      <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${t.isActive !== false ? 'translate-x-4' : 'translate-x-0'
+                        }`} />
                     </button>
                   </div>
                 ))
@@ -396,18 +395,13 @@ export const MasterDataConfig: React.FC = () => {
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={() => toggleCategoryMutation.mutate(c.id)}
-                      className={`relative inline-flex items-center h-5 rounded-full w-9 transition-colors focus:outline-none shadow-[0_0_10px_rgba(0,0,0,0.5)] flex-shrink-0 ${c.isActive !== false
-                        ? 'bg-emerald-500/20 border border-emerald-500/50'
-                        : 'bg-rose-500/10 border border-rose-500/30'
+                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${c.isActive !== false ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
                         }`}
                     >
-                      <span
-                        className={`${c.isActive !== false
-                          ? 'translate-x-4 bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]'
-                          : 'translate-x-1 bg-rose-500/50'
-                          } inline-block w-3.5 h-3.5 transform rounded-full transition-transform`}
-                      />
+                      <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${c.isActive !== false ? 'translate-x-4' : 'translate-x-0'
+                        }`} />
                     </button>
                   </div>
                 ))
@@ -456,18 +450,13 @@ export const MasterDataConfig: React.FC = () => {
                     </div>
                     <div>
                       <button
+                        type="button"
                         onClick={() => toggleGroupMutation.mutate(group.id)}
-                        className={`relative inline-flex items-center h-5 rounded-full w-9 transition-colors focus:outline-none shadow-[0_0_10px_rgba(0,0,0,0.5)] flex-shrink-0 ${group.isActive !== false
-                          ? 'bg-emerald-500/20 border border-emerald-500/50'
-                          : 'bg-rose-500/10 border border-rose-500/30'
+                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${group.isActive !== false ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
                           }`}
                       >
-                        <span
-                          className={`${group.isActive !== false
-                            ? 'translate-x-4 bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]'
-                            : 'translate-x-1 bg-rose-500/50'
-                            } inline-block w-3.5 h-3.5 transform rounded-full transition-transform`}
-                        />
+                        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${group.isActive !== false ? 'translate-x-4' : 'translate-x-0'
+                          }`} />
                       </button>
                     </div>
                   </div>
@@ -478,63 +467,77 @@ export const MasterDataConfig: React.FC = () => {
         </div>
 
         {/* STATUSES Panel */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col gap-4 border-l-4 border-l-purple-500 transition-colors duration-200">
-          <div className="flex justify-between items-center mb-2">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-black tracking-wider text-slate-800 dark:text-slate-100 uppercase">Statuses</h3>
-              <span className="text-[10px] font-bold bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400 px-2 py-0.5 rounded-full">
-                {statuses?.length || 0} Defined
-              </span>
-            </div>
-            <button 
-              onClick={() => setIsAddStatusModalOpen(true)}
-              className="bg-purple-50 text-purple-600 border border-purple-200/60 hover:bg-purple-100 font-bold text-[10px] tracking-wider uppercase px-2.5 py-1.5 rounded-xl transition-all"
-            >
-              + Add New Status
-            </button>
-          </div>
-
-          {/* Map List of Status Rows from DB */}
-          <div className="flex flex-col gap-3 max-h-[250px] overflow-y-auto pr-1">
-            {statuses?.map((status: any) => (
-              <div 
-                key={status.id} 
-                className="flex justify-between items-center bg-slate-50/70 dark:bg-slate-950/40 p-4 rounded-xl border border-slate-200/50 dark:border-slate-800/80 transition-all"
+        <div className="theme-card-panel rounded-2xl p-6 flex flex-col justify-between h-full transition-colors duration-300">
+          <div>
+            <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-white/5 pb-4 mb-4">
+              <h3 className="text-sm font-bold text-cyan-400 font-mono uppercase tracking-wider flex items-center gap-2">
+                <span>STATUSES</span>
+                <span className="text-[10px] bg-cyan-500/15 text-cyan-300 px-2.5 py-0.5 rounded-full">
+                  {statuses?.length || 0} Defined
+                </span>
+              </h3>
+              <button
+                onClick={() => setIsAddStatusModalOpen(true)}
+                className="px-4 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 hover:border-indigo-400 text-indigo-400 dark:text-indigo-300 font-mono text-[10px] font-bold uppercase rounded-lg transition-all shadow-[0_0_10px_rgba(99,102,241,0.1)] hover:shadow-[0_0_15px_rgba(99,102,241,0.3)] tracking-wider"
               >
-                {/* Refactored Status Sub-Row Option Item Wrapper */}
-                <div>
-                  {/* Row Label text color update */}
-                  <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
-                    {status.label}
-                  </h4>
-                  {status.description && (
-                    <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-0.5 normal-case leading-normal">
-                      {status.description}
-                    </p>
-                  )}
-                </div>
-                
-                {/* Dynamic Active/Disabled Toggle Controller */}
-                <button
-                  type="button"
-                  onClick={() => toggleStatusMutation.mutate({ id: status.id, isActive: !status.isActive })}
-                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                    status.isActive ? 'bg-emerald-500' : 'bg-slate-300'
-                  }`}
+                ➕ ADD NEW STATUS
+              </button>
+            </div>
+
+            {/* Map List of Status Rows from DB */}
+            <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1 mb-6">
+              {statuses?.map((status: any) => (
+                <div
+                  key={status.id}
+                  className="w-full flex items-center justify-between p-4 mb-3 rounded-xl border border-slate-200/40 dark:border-white/5 bg-slate-50/40 dark:bg-slate-950/30 hover:bg-slate-50/80 dark:hover:bg-slate-950/50 transition-all duration-200"
                 >
-                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
-                    status.isActive ? 'translate-x-4' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-            ))}
+                  <div className="flex items-center gap-4">
+                    <div className="text-indigo-500 text-xs">◆</div>
+                    <div className="flex flex-col gap-1">
+                      <h3 className="text-sm font-semibold tracking-wide text-slate-900 dark:text-slate-100 uppercase">
+                        {status.label}
+                      </h3>
+                      {status.description && (
+                        <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+                          {status.description}
+                        </p>
+                      )}
+                      <div className="flex gap-2 mt-1">
+                        {status.isSlaPaused && (
+                          <span className="px-1.5 py-0.5 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded text-[9px] font-black uppercase tracking-wider">
+                            ⏸ SLA Paused
+                          </span>
+                        )}
+                        {status.isArchived && (
+                          <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded text-[9px] font-black uppercase tracking-wider">
+                            📥 Archiving
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dynamic Active/Disabled Toggle Controller */}
+                  <button
+                    type="button"
+                    onClick={() => toggleStatusMutation.mutate({ id: status.id, isActive: !status.isActive })}
+                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${status.isActive !== false ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
+                      }`}
+                  >
+                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${status.isActive !== false ? 'translate-x-4' : 'translate-x-0'
+                      }`} />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* SLA Registry Builder Panel */}
-        <div className="theme-card-panel rounded-2xl p-6 flex flex-col h-full transition-colors duration-300">
-          <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-white/5 pb-4 mb-6">
-            <h3 className="text-sm font-bold theme-heading-text font-mono uppercase tracking-wider flex items-center gap-2">
+        <div className="theme-card-panel rounded-2xl flex flex-col h-full transition-colors duration-300 overflow-hidden">
+          {/* Distinct Header Bar Panel */}
+          <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-white/5 px-6 py-5 bg-slate-50 dark:bg-slate-900/50">
+            <h3 className="text-sm font-bold text-cyan-400 font-mono uppercase tracking-wider flex items-center gap-2">
               <span>SLA CONFIGURATION RULES</span>
             </h3>
             <button
@@ -545,17 +548,17 @@ export const MasterDataConfig: React.FC = () => {
             </button>
           </div>
 
-          <div className="space-y-3 overflow-y-auto pr-1">
+          <div className="flex flex-col flex-1 overflow-y-auto">
             {/* Dynamically Fetched SLA Rules List */}
             {loadingSla ? (
-              <div className="text-center py-6 text-slate-500 font-mono text-xs animate-pulse">Loading SLA Rules...</div>
+              <div className="text-center py-6 text-slate-500 text-xs animate-pulse">Loading SLA Rules...</div>
             ) : slaRules && slaRules.length > 0 ? (
               slaRules.map((rule: any) => (
-                <div key={rule.id} className="flex justify-between items-center p-3 border-b border-slate-200 dark:border-slate-800">
-                  <span className="font-mono text-sm uppercase text-slate-700 dark:text-slate-200">
-                    🔹 {rule.ticketType}
+                <div key={rule.id} className="flex justify-between items-center px-6 py-4 even:bg-slate-50/70 odd:bg-transparent dark:even:bg-slate-900/30 transition-all">
+                  <span className="text-sm font-bold uppercase text-slate-800 dark:text-slate-200 flex items-center gap-3">
+                    <span className="text-indigo-500 text-[10px]">◆</span> {rule.ticketType}
                   </span>
-                  <span className="text-xs text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-950/40 px-2 py-0.5 rounded-full border border-cyan-200 dark:border-cyan-800/40">
+                  <span className="text-[10px] font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-950/40 px-2.5 py-0.5 rounded-full border border-cyan-200 dark:border-cyan-800/40 tracking-wider">
                     {rule.tiers?.length || 0} TIERS
                   </span>
                 </div>
@@ -564,11 +567,11 @@ export const MasterDataConfig: React.FC = () => {
               <div className="text-slate-500 text-center py-8">No SLA Rules defined in the database.</div>
             )}
 
-            <div className="pt-6 pb-2 flex justify-center">
+            <div className="p-6 flex justify-center mt-auto border-t border-slate-100 dark:border-slate-800/50">
               <button
                 type="button"
                 onClick={() => navigate('/admin/master-config/sla-ledger')}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-all mx-auto mt-4"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-all mx-auto"
               >
                 <span>🔽 VIEW MORE RULES</span>
               </button>
@@ -701,6 +704,44 @@ export const MasterDataConfig: React.FC = () => {
                   className="w-full bg-white border border-slate-200 text-slate-900 placeholder-slate-400 rounded-xl p-3 text-sm min-h-[100px] resize-none focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
                   placeholder="Describe what this status implies..."
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mt-3 p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl">
+                {/* 🕒 SLA PAUSE TOGGLE */}
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={isSlaPaused}
+                    onChange={(e) => setIsSlaPaused(e.target.checked)}
+                    className="w-4 h-4 rounded text-amber-500 border-slate-300 dark:border-slate-700 focus:ring-amber-500 focus:ring-2"
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-xs font-black tracking-wide text-slate-800 dark:text-slate-200 uppercase">
+                      Pause SLA Clocks
+                    </span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Freezes countdowns when this status is active.
+                    </span>
+                  </div>
+                </label>
+
+                {/* 📦 ARCHIVE / RESOLUTION TOGGLE */}
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={isArchived}
+                    onChange={(e) => setIsArchived(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-500 border-slate-300 dark:border-slate-700 focus:ring-indigo-500 focus:ring-2"
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-xs font-black tracking-wide text-slate-800 dark:text-slate-200 uppercase">
+                      Archive on Resolve
+                    </span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Moves the ticket out of active boards into the archive.
+                    </span>
+                  </div>
+                </label>
               </div>
               <div className="pt-4 flex justify-end gap-3">
                 <button

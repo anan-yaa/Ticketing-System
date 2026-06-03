@@ -11,7 +11,8 @@ import { MergeTicketsModal } from './MergeTicketsModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV2';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs, { Dayjs } from 'dayjs';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { TextField } from '@mui/material';
 
@@ -56,7 +57,7 @@ export const AdminTicketsQueue: React.FC = () => {
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
   const [isSnoozeModalOpen, setIsSnoozeModalOpen] = useState(false);
   const [returnDate, setReturnDate] = useState("");
-  const [returnTime, setReturnTime] = useState<Date | null>(new Date());
+  const [returnTime, setReturnTime] = useState<Dayjs | null>(dayjs());
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [replyText, setReplyText] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -66,15 +67,15 @@ export const AdminTicketsQueue: React.FC = () => {
   const handleSnoozeSubmit = async () => {
     if (!selectedTicket || !returnDate || !returnTime) return;
 
-    // Combine chosen date elements with explicit hours/minutes selections
-    const combinedTimestamp = new Date(returnDate);
-    combinedTimestamp.setHours(returnTime.getHours());
-    combinedTimestamp.setMinutes(returnTime.getMinutes());
-    combinedTimestamp.setSeconds(0);
+    // Cleanly combine using Dayjs native utility formatting features
+    const combinedTarget = dayjs(returnDate)
+      .hour(returnTime.hour())
+      .minute(returnTime.minute())
+      .second(0);
 
     try {
       const res = await api.patch(`/tickets/${selectedTicket.id}/temporary-closure`, {
-        snoozedUntil: combinedTimestamp.toISOString() // 🔗 Dispatches precise timestamp to database
+        snoozedUntil: combinedTarget.toISOString() // 🔗 Dispatches precise timestamp to database
       });
       setSelectedTicket(null); // or update to res.data if keeping modal open
       setIsSnoozeModalOpen(false);
@@ -236,6 +237,56 @@ export const AdminTicketsQueue: React.FC = () => {
   const [coreType, setCoreType] = useState('');
 
   const [coreStatus, setCoreStatus] = useState('OPEN');
+
+  const [statusOptions, setStatusOptions] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    const loadSystemStatuses = async () => {
+      try {
+        const response = await api.get('/master-config/statuses?activeOnly=true'); // Ensure we only get active statuses
+        const dataRows = Array.isArray(response.data) ? response.data : response.data?.data || [];
+        setStatusOptions(dataRows);
+      } catch (err) {
+        console.error("❌ Failed to fetch custom status list:", err);
+      }
+    };
+    loadSystemStatuses();
+  }, []);
+
+  const handleStatusChange = async (selectedStatusId: string) => {
+    if (!selectedTicket) return;
+    try {
+      const selectedObj = statusOptions.find(s => s.id === selectedStatusId);
+      if (!selectedObj) return;
+
+      const isArchived = selectedObj.isArchived === true;
+
+      const payload = {
+        statusId: selectedStatusId,
+      };
+
+      const res = await api.patch(`/tickets/${selectedTicket.id}/status`, payload);
+
+      if (isArchived) {
+        setSelectedTicket(null);
+        setToast({ message: 'Ticket successfully resolved and moved to Closed Archive!', type: 'success' });
+      } else {
+        setSelectedTicket(res.data);
+        setToast({ message: `Status updated to ${selectedObj.name.replace(/_/g, ' ')}`, type: 'success' });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['activeTicketsList'] });
+      queryClient.invalidateQueries({ queryKey: ['archivedTicketsList'] });
+      if (!isArchived) {
+        queryClient.invalidateQueries({ queryKey: ['ticketDetails', selectedTicket.id] });
+      }
+    } catch (err) {
+      console.error("❌ Failed to update ticket status payload:", err);
+      setToast({ message: 'Failed to update Status', type: 'error' });
+    }
+  };
+
   const [coreFirewallCategory, setCoreFirewallCategory] = useState('');
   const [coreSource, setCoreSource] = useState('PORTAL');
   const [coreIsScope, setCoreIsScope] = useState(true);
@@ -491,19 +542,19 @@ export const AdminTicketsQueue: React.FC = () => {
     return true;
   });
 
-  // Filter tickets for "Open Queue" (all active tickets: status !== 'CLOSED')
+  // Filter tickets for "Open Queue" (all active tickets: not resolved and not archived)
   const openQueueTickets = groupFilteredTickets.filter(
-    (t) => t.status !== 'CLOSED'
+    (t) => !t.resolvedAt && !t.masterStatus?.isArchived && t.status !== 'CLOSED' && t.status !== 'RESOLVED'
   );
 
   // Filter tickets for "My Queue" (assigned to current user and not closed)
   const myQueueTickets = groupFilteredTickets.filter(
-    (t) => (user as any)?.systemRole === 'SUPER_ADMIN' ? false : ((t.ticketOwnerId === user?.id || (t as any).assignedToId === user?.id) && t.status !== 'CLOSED')
+    (t) => (user as any)?.systemRole === 'SUPER_ADMIN' ? false : ((t.ticketOwnerId === user?.id || (t as any).assignedToId === user?.id) && !t.resolvedAt && !t.masterStatus?.isArchived && t.status !== 'CLOSED' && t.status !== 'RESOLVED')
   );
 
-  // Filter tickets for "Closed Archive" (status is exactly CLOSED)
+  // Filter tickets for "Closed Archive" (status is exactly CLOSED or isArchived is true)
   const closedArchiveTickets = groupFilteredTickets.filter(
-    (t) => t.status === 'CLOSED'
+    (t) => t.status === 'CLOSED' || t.status === 'RESOLVED' || !!t.resolvedAt || !!t.masterStatus?.isArchived
   );
 
   // Dynamically calculate assigned groups present in the current workflow payload
@@ -1058,93 +1109,18 @@ export const AdminTicketsQueue: React.FC = () => {
             <div className="w-full md:w-[70%] md:max-w-[70%] md:shrink-0 bg-white/50 dark:bg-black/40 border-r border-slate-200 dark:border-white/5 p-8 flex flex-col overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="relative" ref={statusPopoverRef}>
-                    <button
-                      onClick={() => setIsStatusPopoverOpen(!isStatusPopoverOpen)}
-                      className="w-full min-w-[160px] bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-xl p-2.5 text-xs font-bold tracking-wider uppercase focus:outline-none transition-all duration-200 text-left flex justify-between items-center"
+                  <div className="relative">
+                    <select
+                      value={selectedTicket.statusId || selectedTicket.status}
+                      onChange={(e) => handleStatusChange(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none"
                     >
-                      <span>{selectedTicket.status || 'ASSIGN STATE'}</span>
-                      <svg className={`w-4 h-4 transition-transform ${isStatusPopoverOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                    </button>
-
-                    {isStatusPopoverOpen && (
-                      <div className="absolute top-full left-0 z-50 mt-2 w-72 shadow-[0_10px_40px_rgba(0,0,0,0.2)] border border-slate-200 dark:border-slate-800">
-                        <div className="flex flex-col max-h-64 overflow-y-auto p-1 bg-white dark:bg-slate-900 rounded-xl">
-                          {isLoadingStatuses ? (
-                            <div className="text-[10px] font-bold text-slate-400 p-3 animate-pulse uppercase tracking-wider">
-                              Syncing Database Statuses...
-                            </div>
-                          ) : serverStatuses.filter((s: any) => s.isActive !== false).length === 0 ? (
-                            <div className="text-[10px] font-medium text-slate-400 p-3 italic">
-                              No active lifecycle statuses configured
-                            </div>
-                          ) : (
-                            serverStatuses
-                              .filter((status: any) => status.isActive !== false)
-                              .map((status: any) => {
-                                const isCurrentValue = selectedTicket.status === status.name;
-
-                                return (
-                                  <button
-                                    key={status.id}
-                                    type="button"
-                                    onClick={async () => {
-                                      setIsStatusPopoverOpen(false);
-                                      const statusName = status.name;
-                                      try {
-                                        const isResolved = statusName === "RESOLVED";
-
-                                        const payload = {
-                                          status: statusName,
-                                          isArchived: isResolved,
-                                          archivedAt: isResolved ? new Date().toISOString() : null,
-                                          assignedToId: user?.id,
-                                          ticketOwnerId: user?.id,
-                                          ...(isResolved ? {
-                                            subStatus: 'NONE',
-                                            closedAt: new Date().toISOString(),
-                                            closedBy: user?.name
-                                          } : {})
-                                        };
-
-                                        const res = await api.patch(`/tickets/${selectedTicket.id}/status`, payload);
-
-                                        if (isResolved) {
-                                          setSelectedTicket(null);
-                                        } else {
-                                          setSelectedTicket(res.data);
-                                        }
-
-                                        queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
-                                        queryClient.invalidateQueries({ queryKey: ['activeTicketsList'] });
-                                        queryClient.invalidateQueries({ queryKey: ['archivedTicketsList'] });
-                                        if (!isResolved) {
-                                          queryClient.invalidateQueries({ queryKey: ['ticketDetails', selectedTicket.id] });
-                                        }
-
-                                        setToast({ message: isResolved ? 'Ticket successfully resolved and moved to Closed Archive.' : `Status updated to ${statusName.replace(/_/g, ' ')}`, type: 'success' });
-                                      } catch (err) {
-                                        setToast({ message: 'Failed to update Status', type: 'error' });
-                                      }
-                                    }}
-                                    className={`w-full text-left px-3.5 py-2.5 text-xs rounded-lg font-semibold transition-all flex flex-col gap-0.5 ${isCurrentValue
-                                      ? 'bg-sky-50 text-sky-700 font-bold dark:bg-sky-500/20 dark:text-sky-300'
-                                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200'
-                                      }`}
-                                  >
-                                    <span className="uppercase tracking-wide">{status.label}</span>
-                                    {status.description && (
-                                      <span className="text-[9px] font-medium text-slate-400 block normal-case">
-                                        {status.description}
-                                      </span>
-                                    )}
-                                  </button>
-                                );
-                              })
-                          )}
-                        </div>
-                      </div>
-                    )}
+                      {statusOptions.map((status) => (
+                        <option key={status.id} value={status.id}>
+                          {String(status.name || status.description).toUpperCase()}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <button
@@ -2065,7 +2041,7 @@ export const AdminTicketsQueue: React.FC = () => {
               <label className="text-[10px] font-black tracking-wider text-slate-700 dark:text-slate-400 uppercase">
                 Exact Re-awakening Time
               </label>
-              <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <TimePicker
                   value={returnTime}
                   onChange={(newValue) => setReturnTime(newValue)}

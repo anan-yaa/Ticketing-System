@@ -1,10 +1,13 @@
-import { IsOptional, IsEnum } from 'class-validator';
+import { IsOptional, IsEnum, IsUUID, IsString } from 'class-validator';
 import { TicketStatus, SubStatus } from '@prisma/client';
 
 export class UpdateStatusDto {
   @IsOptional()
-  @IsEnum(TicketStatus)
-  status?: TicketStatus;
+  status?: string;
+
+  @IsOptional()
+  @IsUUID()
+  statusId?: string;
 
   @IsOptional()
   @IsEnum(SubStatus)

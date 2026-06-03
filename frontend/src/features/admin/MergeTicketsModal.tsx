@@ -48,35 +48,35 @@ export const MergeTicketsModal: React.FC<MergeTicketsModalProps> = ({ isOpen, on
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-md p-4 transition-all duration-300 ease-out">
-      <div className="bg-slate-950 border border-white/10 rounded-3xl w-full max-w-lg shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden animate-in zoom-in-95 duration-300">
-        <div className="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-white tracking-widest uppercase flex items-center gap-2">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 dark:bg-slate-950/40 backdrop-blur-md p-4 transition-all duration-300 ease-out">
+      <div className="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white dark:bg-[#0b0f19] border border-slate-200 dark:border-slate-800 p-6 shadow-2xl transition-colors duration-200 flex flex-col gap-4 animate-in zoom-in-95">
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-widest uppercase flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"></span>
             Merge Tickets
           </h2>
           <button
             onClick={onClose}
-            className="text-slate-500 hover:text-white transition-colors"
+            className="text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"
           >
             ✕
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
-          <p className="text-slate-400 text-xs font-mono mb-4 leading-relaxed">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <p className="text-slate-600 dark:text-slate-400 text-xs font-mono mb-4 leading-relaxed">
             Select an active Master Ticket below. The current ticket 
-            <span className="text-white font-bold mx-1">{selectedTicket.id}</span>
+            <span className="text-slate-800 dark:text-white font-bold mx-1">{selectedTicket.id}</span>
             will become a nested child in the execution sequence and be placed ON HOLD.
           </p>
 
           <div>
-            <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Select Target Master Ticket</label>
+            <label className="block text-xs font-mono text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-widest">Select Target Master Ticket</label>
             <select
               required
               value={parentTicketId}
               onChange={(e) => setParentTicketId(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-cyan-400 outline-none transition-all font-mono text-sm shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)] appearance-none"
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-cyan-500 transition-colors appearance-none cursor-pointer"
             >
               <option value="">-- Select Master Ticket --</option>
               {validParents.map(t => (
@@ -87,18 +87,23 @@ export const MergeTicketsModal: React.FC<MergeTicketsModalProps> = ({ isOpen, on
             </select>
           </div>
 
-          <div className="pt-4 flex justify-end gap-3 border-t border-white/5">
+          {/* 🛠️ FOOTER ACTIONS CONTAINER ROW */}
+          <div className="flex items-center justify-end gap-3 w-full mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60">
+            
+            {/* ⚪ CANCEL BUTTON */}
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-2 rounded-xl text-slate-400 hover:text-white font-mono text-xs uppercase tracking-widest transition-colors"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[11px] rounded-xl uppercase tracking-wider transition-colors"
             >
               Cancel
             </button>
+
+            {/* 🔵 CONFIRM MERGE BUTTON */}
             <button
               type="submit"
               disabled={isSubmitting || !parentTicketId || validParents.length === 0}
-              className="px-6 py-2 bg-indigo-500/20 hover:bg-indigo-500 text-indigo-300 hover:text-white border border-indigo-500/50 hover:border-indigo-400 rounded-xl font-bold font-mono text-xs uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(99,102,241,0.3)] hover:shadow-[0_0_25px_rgba(99,102,241,0.6)] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:bg-slate-800/50 dark:disabled:text-slate-600 text-white font-black text-[11px] rounded-xl uppercase tracking-wider transition-all shadow-sm shadow-indigo-500/10"
             >
               {isSubmitting ? 'Merging...' : 'Confirm Merge'}
             </button>

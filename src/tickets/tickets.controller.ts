@@ -31,6 +31,12 @@ export class TicketsController {
     return this.ticketsService.mergeTickets(childTicketId, parentTicketId);
   }
 
+  @Post('migrate-status')
+  @Permissions('SUPER_ADMIN') // Restrict to top-level admins
+  async migrateStatusIds() {
+    return this.ticketsService.migrateStatusIds();
+  }
+
   @Post('upload-attachment')
   @Permissions('TICKET_UPDATE')
   @UseInterceptors(FileInterceptor('file', {
@@ -104,7 +110,7 @@ export class TicketsController {
     @Param('id') id: string,
     @Body() dto: UpdateStatusDto,
   ) {
-    return this.ticketsService.updateStatus(id, dto.status, dto.subStatus);
+    return this.ticketsService.updateStatus(id, dto.statusId || dto.status, dto.subStatus);
   }
 
   @Patch(':id/close')
