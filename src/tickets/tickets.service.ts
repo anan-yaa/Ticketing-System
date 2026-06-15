@@ -54,7 +54,11 @@ export class TicketsService {
   }
 
   async createTicket(user: any, data: CreateTicketDto) {
-    const { title, description, priority = TicketPriority.LOW, category, source = 'PORTAL', ticketSource, status, isRecurring, cronExpression, executeAt } = data;
+    const { title, description, category, source = 'PORTAL', ticketSource, status, isRecurring, cronExpression, executeAt } = data;
+
+    // Normalize priority to uppercase enum value (e.g. "high" → "HIGH")
+    const rawPriority = data.priority ? String(data.priority).toUpperCase() : 'LOW';
+    const priority = rawPriority as TicketPriority;
 
     let targetCustomerId = user.userId || user.id;
     const hasAdminCreate = user.permissions && user.permissions.includes('TICKET_CREATE_AS_ADMIN');
@@ -78,30 +82,28 @@ export class TicketsService {
       responseTime = activeConfig.responseTime;
       resolutionTime = activeConfig.resolutionTime;
     } else {
-      const priorityStr = String(priority);
-      if (priorityStr === 'P1' || priority === TicketPriority.URGENT) {
+      if (priority === TicketPriority.URGENT) {
         responseTime = 2 * 60;
         resolutionTime = 4 * 60;
-      } else if (priorityStr === 'P2' || priority === TicketPriority.HIGH) {
+      } else if (priority === TicketPriority.HIGH) {
         responseTime = 2 * 60;
         resolutionTime = 6 * 60;
-      } else if (priorityStr === 'P3' || priority === TicketPriority.MEDIUM) {
+      } else if (priority === TicketPriority.MEDIUM) {
         responseTime = 4 * 60;
         resolutionTime = 12 * 60;
       }
     }
 
-    // Step D: Calculate our fixed deadline timestamp based strictly on these static snapshot fields
+    // Step D: Calculate deadline timestamps
     const now = new Date();
     const ttfrDeadline = new Date(now.getTime() + responseTime * 60 * 1000);
     const resolutionDeadline = new Date(now.getTime() + resolutionTime * 60 * 1000);
-
-    // Using resolutionDeadline as the main slaDeadline for legacy fields
     const slaDeadline = resolutionDeadline;
 
-    // Step C: Assign those extracted integers directly to our new ticket columns
+    // Step C: Persist ticket with all core classification fields in a single atomic write
     const ticket = await this.prisma.ticket.create({
       data: {
+        // ── Core ticket identity ──────────────────────────────────────────
         title,
         description,
         priority,
@@ -112,17 +114,30 @@ export class TicketsService {
         isRecurring: isRecurring || false,
         cronExpression: cronExpression || null,
         executeAt: executeAt ? new Date(executeAt) : null,
+        customerId: targetCustomerId,
+
+        // ── SLA deadlines ─────────────────────────────────────────────────
         slaDeadline,
         ttfrDeadline,
         resolutionDeadline,
         responseTargetMinutes: responseTime,
         resolutionTargetMinutes: resolutionTime,
-        customerId: targetCustomerId,
+
+        // ── Core classification fields (merged from Add Core Data) ─────────
+        ticketType: data.ticketType || null,
+        queueId: data.queueId || null,
+        firewallCategory: data.firewallCategory || null,
+        isScopeInScope: data.isScopeInScope ?? null,
+        customerName: data.customerName || null,
+        ticketOwnerId: data.ticketOwnerId || null,
+        affectedDevice: data.affectedDevice || null,
+        deviceIp: data.deviceIp || null,
       },
     });
 
     return this.formatTicket(ticket);
   }
+
 
   // GET /tickets/my-tickets (Customer only)
   async getCustomerTickets(customerId: string) {
@@ -306,6 +321,11 @@ export class TicketsService {
       throw new NotFoundException(`Ticket not found for id: ${ticketId}`);
     }
     console.log('[updateCoreData] Found ticket UUID:', ticket.id, '| seq:', ticket.ticketSeq);
+
+    // Normalize priority to uppercase so it matches the TicketPriority enum (e.g. "high" → "HIGH")
+    if (data.priority !== undefined && data.priority !== null) {
+      data.priority = String(data.priority).toUpperCase();
+    }
 
     const isPriorityAltered = data.priority !== undefined && data.priority !== ticket.priority;
     const isCriticalityAltered = data.criticality !== undefined && data.criticality !== ticket.criticality;

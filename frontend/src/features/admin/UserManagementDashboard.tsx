@@ -115,7 +115,7 @@ export const UserManagementDashboard: React.FC = () => {
           <div className="p-8 border-b border-white/5 flex justify-between items-center bg-black/20 shrink-0">
             <h2 className="text-xl font-bold text-white tracking-widest uppercase flex items-center gap-3">
               <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"></span>
-              {activeTab === 'dashboard' && 'Executive Metrics Dashboard'}
+              {activeTab === 'dashboard' && 'Metrics Dashboard'}
               {activeTab === 'tickets' && 'Ticket Queue Management'}
             </h2>
           </div>

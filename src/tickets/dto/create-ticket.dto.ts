@@ -1,7 +1,7 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { TicketPriority } from '@prisma/client';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
 
 export class CreateTicketDto {
+  // ── Core Ticket Identity ─────────────────────────────────────────────────
   @IsNotEmpty()
   @IsString()
   title: string;
@@ -9,10 +9,6 @@ export class CreateTicketDto {
   @IsNotEmpty()
   @IsString()
   description: string;
-
-  @IsOptional()
-  @IsEnum(TicketPriority)
-  priority?: TicketPriority;
 
   @IsOptional()
   @IsString()
@@ -34,6 +30,7 @@ export class CreateTicketDto {
   @IsString()
   status?: string;
 
+  // ── Scheduling ───────────────────────────────────────────────────────────
   @IsOptional()
   isRecurring?: boolean;
 
@@ -43,4 +40,46 @@ export class CreateTicketDto {
 
   @IsOptional()
   executeAt?: string | Date;
+
+  // ── Core Classification (merged from Add Core Data panel) ─────────────────
+  @IsOptional()
+  @IsString()
+  ticketType?: string;
+
+  @IsOptional()
+  @IsString()
+  queueId?: string;
+
+  @IsOptional()
+  @IsString()
+  firewallCategory?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isScopeInScope?: boolean;
+
+  @IsOptional()
+  @IsString()
+  customerName?: string;
+
+  /**
+   * Priority accepts any case (e.g. "high", "HIGH").
+   * The service layer normalises to uppercase before writing to Prisma.
+   */
+  @IsOptional()
+  @IsString()
+  priority?: string;
+
+  @IsOptional()
+  @IsString()
+  ticketOwnerId?: string;
+
+  @IsOptional()
+  @IsString()
+  affectedDevice?: string;
+
+  @IsOptional()
+  @IsString()
+  deviceIp?: string;
 }
+

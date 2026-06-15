@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchAllTicketsAdmin, createTicketAdmin, updateTicketCoreData, Ticket } from '../../api/tickets';
 import { fetchUsers } from '../../api/users';
@@ -20,6 +21,7 @@ import { TextField } from '@mui/material';
 export const AdminTicketsQueue: React.FC = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [workspace, setWorkspace] = useState<'openQueue' | 'myQueue' | 'closedArchive'>('openQueue');
   const [selectedGroupFilter, setSelectedGroupFilter] = useState('ALL');
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState<boolean>(false);
@@ -483,20 +485,7 @@ export const AdminTicketsQueue: React.FC = () => {
 
   const openCoreDataForm = () => {
     if (!selectedTicket) return;
-    setCoreType(selectedTicket.ticketType || '');
-    setCoreStatus(selectedTicket.status || 'OPEN');
-    setCoreFirewallCategory(selectedTicket.firewallCategory || '');
-    setCoreSource(selectedTicket.ticketSource || selectedTicket.source || 'PORTAL');
-    setCoreIsScope(selectedTicket.isScopeInScope ?? true);
-    setCoreCustomerName(selectedTicket.customerName || selectedTicket.customer?.name || '');
-    setSelectedServiceGroup(selectedTicket.queueId || selectedTicket.serviceContract || '');
-    setCoreCriticality(selectedTicket.criticality || '');
-    setCorePriority(selectedTicket.priority || 'LOW');
-
-    setCoreOwnerId(selectedTicket.ticketOwnerId || '');
-    setCoreDevice(selectedTicket.affectedDevice || '');
-    setCoreIp(selectedTicket.deviceIp || '');
-    setIsCoreDataModalOpen(true);
+    navigate(`/tickets/${selectedTicket.id}/core-data`);
   };
 
   // Filter tickets dynamically by routing group (Rule B)
@@ -941,7 +930,7 @@ export const AdminTicketsQueue: React.FC = () => {
 
               {/* EXISTING TRIGGER BUTTON: Create Ticket Button */}
               <button
-                onClick={() => setIsCreateModalOpen(true)}
+                onClick={() => navigate('/tickets/create')}
                 className="bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl shadow-lg shadow-sky-600/10 hover:shadow-sky-500/20 transform hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2"
               >
                 + CREATE TICKET
@@ -1027,7 +1016,7 @@ export const AdminTicketsQueue: React.FC = () => {
                         {t.priority || 'LOW PRIORITY'}
                       </span>
                       <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border uppercase ml-auto ${!isBreached ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20'}`}>
-                        {!isBreached ? 'SLA COMPLIANT' : 'SLA BREACHED'}
+                        {!isBreached ? 'SLA COMPLIANCE' : 'SLA BREACHED'}
                       </span>
                     </div>
 

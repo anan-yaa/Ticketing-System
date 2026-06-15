@@ -72,6 +72,17 @@ export const createTicketAdmin = async (ticket: {
   executeAt?: string | null;
   isRecurring?: boolean;
   cronExpression?: string;
+  // ── Core classification (merged panel) ──────────────────────────────────
+  ticketType?: string;
+  queueId?: string;
+  firewallCategory?: string;
+  ticketSource?: string;
+  isScopeInScope?: boolean;
+  customerName?: string;
+  priority?: string;
+  ticketOwnerId?: string;
+  affectedDevice?: string;
+  deviceIp?: string;
 }): Promise<Ticket> => {
   const { data } = await api.post('/tickets', ticket);
   return data;

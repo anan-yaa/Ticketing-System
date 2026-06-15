@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import api from '../../api/axios';
 import {
   fetchUsers,
-  createUser,
   updateUser,
   deleteUser,
   User,
@@ -45,6 +44,7 @@ const ProfileSettings: React.FC = () => {
   const { user, hasPermission } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<'personal' | 'security' | 'directory' | 'roles' | 'audit' | 'master-config' | 'scheduled-tasks'>(
@@ -64,12 +64,10 @@ const ProfileSettings: React.FC = () => {
   const [passwordLoading, setPasswordLoading] = useState(false);
 
   // User Directory State
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [auditPage, setAuditPage] = useState(1);
   const [limit] = useState(10);
-  const [formData, setFormData] = useState({ name: '', email: '', roleId: '', status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE' });
 
   // Fetch Roles dynamically
   const { data: rolesData } = useQuery<RoleData[]>({
@@ -78,16 +76,6 @@ const ProfileSettings: React.FC = () => {
     enabled: showUserDirectory || showRoles
   });
   const roles = rolesData || [];
-
-  // Automatically default roleId to CUSTOMER role when roles load
-  useEffect(() => {
-    if (roles.length > 0 && !formData.roleId) {
-      const customerRole = roles.find(r => r.name === 'CUSTOMER');
-      if (customerRole) {
-        setFormData(prev => ({ ...prev, roleId: customerRole.id }));
-      }
-    }
-  }, [roles, formData.roleId]);
 
   // React Query Fetch Users
   const { data: usersData, isLoading: isUsersLoading, isError: isUsersError, error: usersError } = useQuery({
@@ -110,19 +98,6 @@ const ProfileSettings: React.FC = () => {
   const auditTotalPages = auditData?.totalPages || 1;
 
   // Mutations
-  const createMutation = useMutation({
-    mutationFn: createUser,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      setToast({ message: 'User created successfully. Temporary password is Welcome@123', type: 'success' });
-      setIsModalOpen(false);
-      const customerRole = roles.find(r => r.name === 'CUSTOMER');
-      setFormData({ name: '', email: '', roleId: customerRole?.id || '', status: 'ACTIVE' });
-    },
-    onError: (err: any) => {
-      setToast({ message: err.response?.data?.message || 'Failed to create user', type: 'error' });
-    }
-  });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, updates }: { id: string, updates: any }) => updateUser(id, updates),
@@ -156,10 +131,7 @@ const ProfileSettings: React.FC = () => {
     }
   };
 
-  const handleOnboardSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    createMutation.mutate(formData);
-  };
+
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -395,10 +367,11 @@ const ProfileSettings: React.FC = () => {
 
                 {hasPermission('USER_CREATE') && (
                   <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:shadow-[0_0_30px_rgba(6,182,212,0.6)] transition-all transform hover:-translate-y-1 uppercase tracking-widest text-xs"
+                    type="button"
+                    onClick={() => navigate('/dashboard/users/create')}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-xl uppercase tracking-wider transition-all shadow-md"
                   >
-                    + Add User
+                    + Register New User
                   </button>
                 )}
               </div>
@@ -590,60 +563,7 @@ const ProfileSettings: React.FC = () => {
         </div>
       </div>
 
-      {/* Add New User Modal (from Directory tab) */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xl p-4">
-          <div className="bg-slate-950/90 border border-white/10 rounded-3xl w-full max-w-md shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white tracking-widest uppercase flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"></span>
-                Add New User
-              </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-white transition-colors">✕</button>
-            </div>
 
-            <form onSubmit={handleOnboardSubmit} className="p-8 space-y-6">
-              <div>
-                <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Name</label>
-                <input required type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all placeholder-slate-700 font-mono text-sm" placeholder="Enter full name" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Email</label>
-                <input required type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all placeholder-slate-700 font-mono text-sm" placeholder="user@system.net" />
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Role</label>
-                  <select value={formData.roleId} onChange={e => setFormData({ ...formData, roleId: e.target.value })} className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all text-sm">
-                    {roles.map(r => (
-                      <option key={r.id} value={r.id} className="bg-slate-900">{r.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex-1">
-                  <label className="block text-xs font-mono text-slate-400 mb-2 uppercase tracking-widest">Status</label>
-                  <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value as any })} className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl focus:ring-2 focus:ring-cyan-500/50 text-white outline-none transition-all text-sm">
-                    <option value="ACTIVE" className="bg-slate-900">ACTIVE</option>
-                    <option value="INACTIVE" className="bg-slate-900">INACTIVE</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="pt-4 flex gap-4 mt-8">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-3 bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white font-bold uppercase tracking-widest text-xs rounded-xl transition-colors">
-                  Cancel
-                </button>
-                <button type="submit" disabled={createMutation.isPending} className="flex-1 px-4 py-3 bg-cyan-600/20 border border-cyan-500/50 hover:bg-cyan-500 text-cyan-300 hover:text-white font-bold rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.2)] hover:shadow-[0_0_25px_rgba(6,182,212,0.6)] uppercase tracking-widest text-xs disabled:opacity-50">
-                  {createMutation.isPending ? 'Processing...' : 'Confirm'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -11,6 +11,9 @@ import Dashboard from './features/admin/Dashboard';
 import { AdminTicketsQueue } from './features/admin/AdminTicketsQueue';
 import { SlaMasterLedger } from './features/admin/SlaMasterLedger';
 import UserPortal from './pages/UserPortal';
+import { CreateTicketPage } from './pages/CreateTicketPage';
+import { EditCoreDataPage } from './pages/EditCoreDataPage';
+import CreateUserPage from './pages/CreateUserPage';
 
 function App() {
   return (
@@ -28,12 +31,20 @@ function App() {
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/super-admin/dashboard" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/admin/dashboard" element={<Navigate to="/dashboard" replace />} />
+                
+                {/* 👥 Dedicated Full-Page User Management Creation Path */}
+                <Route path="/dashboard/users/create" element={<CreateUserPage />} />
               </Route>
-              
               <Route element={<ProtectedRoute requiredPermission="TICKET_VIEW" />}>
                 <Route path="/tickets" element={<AdminTicketsQueue />} />
               </Route>
-              
+
+              {/* 📄 Dedicated Full-Page Route Extensions */}
+              <Route element={<ProtectedRoute requiredPermission="TICKET_VIEW" />}>
+                <Route path="/tickets/create" element={<CreateTicketPage />} />
+                <Route path="/tickets/:id/core-data" element={<EditCoreDataPage />} />
+              </Route>
+
               <Route path="/settings" element={<ProfileSettings />} />
               <Route path="/settings/change-password" element={<ChangePassword />} />
               <Route path="/admin/master-config/sla-ledger" element={<SlaMasterLedger />} />

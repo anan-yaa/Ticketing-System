@@ -6,7 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class TicketSchedulerService {
   private readonly logger = new Logger(TicketSchedulerService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   @Cron('* * * * *')
   async handleRecurringTickets() {
@@ -51,12 +51,12 @@ export class TicketSchedulerService {
             priority: 'MEDIUM',
             source: 'SYSTEM',
             createdAt: now,
-            
+
             // 🔗 Pull categorization cleanly directly from the linked master record name 
             category: task.masterCategory?.name || 'GENERAL',
 
             // Restore mandatory SLA telemetry fields 
-            slaDeadline: new Date(now.getTime() + 24 * 60 * 60 * 1000), 
+            slaDeadline: new Date(now.getTime() + 24 * 60 * 60 * 1000),
             ttfrDeadline: new Date(now.getTime() + 4 * 60 * 60 * 1000),
             resolutionDeadline: new Date(now.getTime() + 48 * 60 * 60 * 1000),
             responseTargetMinutes: 240,
@@ -79,7 +79,7 @@ export class TicketSchedulerService {
   async restoreSnoozedTickets() {
     try {
       const now = new Date();
-      
+
       let expiredTickets = [];
       try {
         expiredTickets = await this.prisma.ticket.findMany({
@@ -147,14 +147,14 @@ export class TicketSchedulerService {
         if (ticket.masterStatus?.isSlaPaused || ticket.masterStatus?.isArchived) {
           continue;
         }
-        
+
         // Also skip if legacy string-based ON_HOLD logic applies but no masterStatus is defined
         if (!ticket.masterStatus && ticket.status === 'ON_HOLD') {
           continue;
         }
 
         const updateData: any = {};
-        
+
         // 1. Time to First Response (TTFR) Check
         if (ticket.ttfrDeadline && now > ticket.ttfrDeadline && !ticket.isTtfrBreached && !ticket.firstRespondedAt) {
           updateData.isTtfrBreached = true;
@@ -164,7 +164,7 @@ export class TicketSchedulerService {
         if (ticket.resolutionDeadline && now > ticket.resolutionDeadline && !ticket.isResolutionBreached) {
           updateData.isResolutionBreached = true;
         }
-        
+
         // 3. Legacy General SLA Check
         if (ticket.slaDeadline && now > ticket.slaDeadline && !ticket.isSlaBreached) {
           updateData.isSlaBreached = true;
@@ -179,7 +179,7 @@ export class TicketSchedulerService {
           this.logger.warn(`⚠️ SLA Threshold Breached -> Ticket #${ticket.ticketSeq} (ID: ${ticket.id})`);
         }
       }
-      
+
       if (breachedCount > 0) {
         this.logger.log(`⏰ SLA Monitor completed. Flagged ${breachedCount} tickets for breaches.`);
       }
