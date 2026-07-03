@@ -15,7 +15,6 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
-import { TextField } from '@mui/material';
 
 
 export const AdminTicketsQueue: React.FC = () => {
@@ -63,8 +62,6 @@ export const AdminTicketsQueue: React.FC = () => {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [replyText, setReplyText] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [isStatusPopoverOpen, setIsStatusPopoverOpen] = useState(false);
-  const statusPopoverRef = useRef<HTMLDivElement>(null);
 
   const handleSnoozeSubmit = async () => {
     if (!selectedTicket || !returnDate || !returnTime) return;
@@ -76,7 +73,7 @@ export const AdminTicketsQueue: React.FC = () => {
       .second(0);
 
     try {
-      const res = await api.patch(`/tickets/${selectedTicket.id}/temporary-closure`, {
+      await api.patch(`/tickets/${selectedTicket.id}/temporary-closure`, {
         snoozedUntil: combinedTarget.toISOString() // 🔗 Dispatches precise timestamp to database
       });
       setSelectedTicket(null); // or update to res.data if keeping modal open
@@ -89,18 +86,6 @@ export const AdminTicketsQueue: React.FC = () => {
       setToast({ message: 'Failed to snooze ticket', type: 'error' });
     }
   };
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (statusPopoverRef.current && !statusPopoverRef.current.contains(event.target as Node)) {
-        setIsStatusPopoverOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
 
   // Advanced Filters user list: uses the exact same fetchUsers() as the Create Ticket modal
   const { data: advFiltersUsersData, isLoading: isLoadingUsers } = useQuery({
@@ -116,7 +101,7 @@ export const AdminTicketsQueue: React.FC = () => {
     );
   }, [advFiltersUsersData]);
 
-  const { data: serverStatuses = [], isLoading: isLoadingStatuses } = useQuery({
+  const { data: serverStatuses = [] } = useQuery({
     queryKey: ['activeMasterStatuses'],
     queryFn: async () => {
       const res = await api.get('/admin/master-config/statuses').catch(async () => {
@@ -294,7 +279,7 @@ export const AdminTicketsQueue: React.FC = () => {
   const [coreIsScope, setCoreIsScope] = useState(true);
   const [coreCustomerName, setCoreCustomerName] = useState('');
   const [selectedServiceGroup, setSelectedServiceGroup] = useState('');
-  const [coreCriticality, setCoreCriticality] = useState('');
+  const [coreCriticality] = useState('');
   const [corePriority, setCorePriority] = useState('LOW');
 
   const [coreOwnerId, setCoreOwnerId] = useState('');
