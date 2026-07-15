@@ -4,7 +4,8 @@
   "scripts": {
     "build": "nest build",
     "start": "nest start",
-    "start:dev": "nest start --watch"
+    "start:dev": "nest start --watch",
+    "seed:ai": "npx ts-node src/ai/ai-seeder.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

@@ -2,11 +2,13 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [pgvector(map: "vector")]
 }
 
 enum SystemRole {
@@ -195,6 +197,14 @@ model Ticket {
   parentId String?
   parent   Ticket?  @relation("TicketToTicket", fields: [parentId], references: [id])
   children Ticket[] @relation("TicketToTicket")
+
+  // 🤖 AI Co-Pilot & Knowledge Base Indexing Telemetry
+  isIndexedToVectorDb Boolean   @default(false)
+  vectorIndexedAt     DateTime?
+  resolutionSummary   String? // Stores the final human-entered solution text block
+
+  // 🤖 Native pgvector High-Dimensional Storage
+  embedding           Unsupported("vector(1536)")?
 }
 
 model Attachment {

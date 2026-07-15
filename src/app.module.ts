@@ -9,6 +9,7 @@ import { RolesModule } from './roles/roles.module';
 import { MasterConfigModule } from './master-config/master-config.module';
 import { WorkersModule } from './workers/workers.module';
 import { ScheduledTasksModule } from './scheduled-tasks/scheduled-tasks.module';
+import { VectorModule } from './ai/vector.module';
 
 import { ScheduleModule } from '@nestjs/schedule';
 
@@ -24,7 +25,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     RolesModule,
     MasterConfigModule,
     WorkersModule,
-    ScheduledTasksModule
+    ScheduledTasksModule,
+    VectorModule
   ],
 })
 export class AppModule {}
