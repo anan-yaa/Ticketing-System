@@ -8,6 +8,7 @@
     "seed:ai": "npx ts-node src/ai/ai-seeder.ts"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@nestjs/common": "^10.0.0",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^10.0.0",
