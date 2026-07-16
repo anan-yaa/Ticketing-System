@@ -221,20 +221,32 @@ export class TicketsService {
 
   // PATCH /tickets/:id (Admin/Customer)
   async updateTicket(ticketId: string, data: any) {
-    const { title, description, priority, category, status } = data;
+    const { title, description, priority, category, status, resolutionSummary } = data;
     const ticket = await this.findTicketById(ticketId);
     if (!ticket) throw new NotFoundException('Ticket not found');
 
+    const updatePayload: any = {
+      title,
+      description,
+      priority,
+      category,
+      status,
+    };
+    if (resolutionSummary !== undefined) {
+      updatePayload.resolutionSummary = resolutionSummary;
+    }
+
     const updated = await this.prisma.ticket.update({
       where: { id: ticket.id },
-      data: {
-        title,
-        description,
-        priority,
-        category,
-        status,
-      },
+      data: updatePayload,
     });
+
+    if ((updated as any).status === 'RESOLVED' || (updated as any).status === 'CLOSED') {
+      this.handleRealTimeTicketIngestion(updated.id).catch(err =>
+        this.logger.error(`[Non-Blocking Ingestion Hook] Unhandled error for ticket ${updated.id}: ${err.message}`)
+      );
+    }
+
     return this.formatTicket(updated);
   }
 
@@ -251,6 +263,10 @@ export class TicketsService {
       where: { id: ticket.id },
       data: { status: TicketStatus.CLOSED },
     });
+
+    this.handleRealTimeTicketIngestion(updatedTicket.id).catch(err =>
+      this.logger.error(`[Non-Blocking Ingestion Hook] Unhandled error for ticket ${updatedTicket.id}: ${err.message}`)
+    );
 
     return this.formatTicket(updatedTicket);
   }
@@ -845,6 +861,7 @@ export class TicketsService {
           ticketType: true,
           status: true,
           resolutionSummary: true,
+          isIndexedToVectorDb: true,
         } as any,
       });
 
@@ -853,41 +870,48 @@ export class TicketsService {
         return;
       }
 
-      const ticketTypeStr = ticket.ticketType || 'GENERAL';
-      const categoryStr = ticket.category || 'Uncategorized';
-      const resolutionStr = ticket.resolutionSummary || 'Resolved and closed by human agent.';
+      // 1. Detect target status trigger condition ('RESOLVED' or 'CLOSED')
+      const isResolvedOrClosed = ticket.status === 'RESOLVED' || ticket.status === 'CLOSED';
+      if (!isResolvedOrClosed) {
+        this.logger.debug(`[handleRealTimeTicketIngestion] Ticket [${ticketId}] status is ${ticket.status} (not RESOLVED/CLOSED). Skipping vector ingestion.`);
+        return;
+      }
 
-      // Format exact text structure block layout designed in Phase 1
-      const textPayload = `Ticket Type: ${ticketTypeStr} | Category: ${categoryStr} | Subject: ${ticket.title} \n Description: ${ticket.description} \n Verified Human Resolution: ${resolutionStr}`;
+      // 2. Check if a 'resolutionSummary' text block is provided
+      const resolutionStr = ticket.resolutionSummary && ticket.resolutionSummary.trim();
+      if (!resolutionStr) {
+        this.logger.debug(`[handleRealTimeTicketIngestion] Ticket [${ticketId}] has no resolutionSummary provided. Skipping vector ingestion.`);
+        return;
+      }
 
-      // Calculate vector embedding
-      const vector = await this.generateEmbeddingVector(textPayload);
+      // 2. Check if 'isIndexedToVectorDb' is false
+      if (ticket.isIndexedToVectorDb) {
+        this.logger.debug(`[handleRealTimeTicketIngestion] Ticket [${ticketId}] is already indexed (isIndexedToVectorDb = true). Skipping.`);
+        return;
+      }
 
-      const metadata = {
-        ticketId: ticket.id,
-        ticketSeq: ticket.ticketSeq,
-        ticketType: ticketTypeStr,
-        category: categoryStr,
-        status: ticket.status,
-        title: ticket.title,
-      };
+      // 2. Compute fresh 1536-dimensional float vector array from the combined string:
+      // "Subject: ${title} \n Description: ${description} \n Solution: ${resolutionSummary}"
+      const combinedString = `Subject: ${ticket.title} \n Description: ${ticket.description} \n Solution: ${resolutionStr}`;
+      const vector = await this.generateEmbeddingVector(combinedString);
 
-      // Call VectorService to upsert document vector into vector space collection map
-      await this.vectorService.upsertDocumentVector(ticket.id, vector, metadata, textPayload);
+      // 3. Execute the raw prisma.$executeRaw update query statement to stream this new embedding string
+      // into the database 'embedding' column for that ticket record, flipping 'isIndexedToVectorDb' to true
+      // and updating the 'vectorIndexedAt' timestamp.
+      const postgresVectorString = `[${vector.join(',')}]`;
+      const now = new Date();
 
-      // Update local ticket telemetry flags to confirm successful vector indexing
-      await this.prisma.ticket.update({
-        where: { id: ticket.id },
-        data: {
-          isIndexedToVectorDb: true,
-          vectorIndexedAt: new Date(),
-        } as any,
-      });
+      await this.prisma.$executeRaw`
+        UPDATE "Ticket"
+        SET "embedding" = ${postgresVectorString}::vector,
+            "isIndexedToVectorDb" = true,
+            "vectorIndexedAt" = ${now}
+        WHERE "id" = ${ticket.id}
+      `;
 
-      this.logger.log(`✅ Real-Time Vector Ingestion Success! Ticket #${ticket.ticketSeq || ticket.id.slice(0, 8)} embedded and indexed into Vector DB collection.`);
+      this.logger.log(`✅ Real-Time Vector Ingestion Success! Ticket #${ticket.ticketSeq || ticket.id.slice(0, 8)} embedded (${vector.length} dims) and committed to pgvector column.`);
     } catch (error: any) {
-      // Fail-Safe Try-Catch Wrapper: Log warning via this.logger.error and reset isIndexedToVectorDb = false
-      // so the human agent request finishes normally and background batch seeding can retry later.
+      // 4. Fault tolerance: safely caught and logged so external API failure never blocks primary transaction or slows request lifecycle
       this.logger.error(`❌ Real-Time Vector Ingestion Failed for Ticket [${ticketId}]: ${error?.message || error}. Setting isIndexedToVectorDb = false for retry.`);
       
       try {

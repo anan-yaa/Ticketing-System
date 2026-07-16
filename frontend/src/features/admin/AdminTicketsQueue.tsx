@@ -7,6 +7,7 @@ import { PermissionGate } from '../../components/PermissionGate';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { SlaHealthTelemetry } from '../../components/SlaHealthTelemetry';
+import { AiCoPilotAdvisor } from '../../components/AiCoPilotAdvisor';
 import { ScheduleTicketModal } from './ScheduleTicketModal';
 import { MergeTicketsModal } from './MergeTicketsModal';
 import jsPDF from 'jspdf';
@@ -1277,6 +1278,13 @@ export const AdminTicketsQueue: React.FC = () => {
 
                 {/* SLA & Health Telemetry Widget Grid */}
                 <SlaHealthTelemetry ticket={selectedTicket} />
+
+                {/* AI Co-Pilot Advisor Widget */}
+                <AiCoPilotAdvisor
+                  ticketId={selectedTicket.id}
+                  ticketTitle={selectedTicket.title}
+                  className="mt-6"
+                />
 
                 {/* File Attachment Upload Block */}
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm transition-all flex flex-col items-center justify-center gap-3 text-center mt-6">

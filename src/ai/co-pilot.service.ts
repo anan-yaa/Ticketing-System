@@ -7,7 +7,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 export class CoPilotService {
   private readonly logger = new Logger(CoPilotService.name);
   private genAI: GoogleGenerativeAI | null = null;
-  private readonly modelName = 'gemini-1.5-flash';
+  private readonly modelName = 'gemini-3.5-flash';
 
   constructor(
     private readonly prisma: PrismaService,
@@ -21,6 +21,7 @@ export class CoPilotService {
       this.logger.warn('⚠️ GEMINI_API_KEY is missing or invalid in environment variables. CoPilotService will operate using historical RAG semantic fallback mode.');
     }
   }
+
 
   /**
    * Generates a deterministic 1536-dimensional float vector matching our master seeder logic.

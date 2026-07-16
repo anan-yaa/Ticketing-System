@@ -22,7 +22,7 @@ export class VectorService implements OnModuleInit {
     id: string,
     vector: number[],
     metadata: any,
-    textPayload: string,
+    textPayload?: string,
   ): Promise<void> {
     try {
       if (!vector || !Array.isArray(vector) || vector.length === 0) {
@@ -32,12 +32,20 @@ export class VectorService implements OnModuleInit {
       const postgresVectorString = `[${vector.join(',')}]`;
 
       // Update the vector array using raw positional injections to bypass client formatting hooks
-      await this.prisma.$executeRaw`
-        UPDATE "Ticket" 
-        SET "embedding" = ${postgresVectorString}::vector,
-            "resolutionSummary" = ${textPayload}
-        WHERE "id" = ${id}
-      `;
+      if (textPayload !== undefined && textPayload !== null) {
+        await this.prisma.$executeRaw`
+          UPDATE "Ticket" 
+          SET "embedding" = ${postgresVectorString}::vector,
+              "resolutionSummary" = ${textPayload}
+          WHERE "id" = ${id}
+        `;
+      } else {
+        await this.prisma.$executeRaw`
+          UPDATE "Ticket" 
+          SET "embedding" = ${postgresVectorString}::vector
+          WHERE "id" = ${id}
+        `;
+      }
 
       this.logger.debug(`Successfully saved float dimensions to Ticket row [${id}].`);
     } catch (error) {
