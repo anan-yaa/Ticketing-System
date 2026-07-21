@@ -5,6 +5,8 @@ export interface Ticket {
   title: string;
   description: string;
   status: 'OPEN' | 'IN_PROGRESS' | 'CLOSED' | string;
+  resolutionSummary?: string | null;
+  isIndexedToVectorDb?: boolean;
   
   // New Relational Layout Properties
   statusId?: string; 
@@ -93,5 +95,15 @@ export const updateTicketCoreData = async (
   payload: any,
 ): Promise<Ticket> => {
   const { data } = await api.patch(`/tickets/${id}/core-data`, payload);
+  return data;
+};
+
+export const fetchTicketById = async (id: string): Promise<Ticket> => {
+  const { data } = await api.get(`/tickets/${id}`);
+  return data;
+};
+
+export const updateTicket = async (id: string, payload: any): Promise<Ticket> => {
+  const { data } = await api.patch(`/tickets/${id}`, payload);
   return data;
 };

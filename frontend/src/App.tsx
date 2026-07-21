@@ -14,6 +14,7 @@ import UserPortal from './pages/UserPortal';
 import { CreateTicketPage } from './pages/CreateTicketPage';
 import { EditCoreDataPage } from './pages/EditCoreDataPage';
 import CreateUserPage from './pages/CreateUserPage';
+import TicketDetail from './pages/TicketDetail';
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
               <Route element={<ProtectedRoute requiredPermission="TICKET_VIEW" />}>
                 <Route path="/tickets/create" element={<CreateTicketPage />} />
                 <Route path="/tickets/:id/core-data" element={<EditCoreDataPage />} />
+                <Route path="/tickets/:id" element={<TicketDetail />} />
               </Route>
 
               <Route path="/settings" element={<ProfileSettings />} />
