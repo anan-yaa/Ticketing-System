@@ -74,17 +74,17 @@ export class TicketSchedulerService {
             responseTargetMinutes: responseTarget,
             resolutionTargetMinutes: resolutionTarget,
             
-            // 🔗 THE CRITICAL TS FIX: Connects the mandatory customer relation model using a verified ID
+            // Connects the mandatory customer relation model using a verified ID
             customer: {
               connect: { id: targetUserId }
             }
           },
         });
 
-        this.logger.log(`✅ AUTOMATION SUCCESS: Instantiated scheduled ticket "${finalizedSubject}" directly inside incoming queue.`);
+        this.logger.log(`AUTOMATION SUCCESS: Instantiated scheduled ticket "${finalizedSubject}" directly inside incoming queue.`);
       }
     } catch (error) {
-      this.logger.error('❌ CRON WORKER PROCESSING FAULT:', error);
+      this.logger.error('CRON WORKER PROCESSING FAULT:', error);
     }
   }
 }

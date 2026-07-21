@@ -994,16 +994,16 @@ const HEAVY_TICKET_DATASET: TicketDataSpec[] = [
 
 async function main() {
   console.log('====================================================================');
-  console.log('🌟 Master AI & Vector Knowledge Base Pipeline (`master-ai-seeder.ts`)');
+  console.log(' Master AI & Vector Knowledge Base Pipeline (`ai-seeder.ts`)');
   console.log('====================================================================\n');
 
   // STEP 1: DATABASE ALIGNMENT & PGVECTOR CHECK
   console.log('[Step 1/3] Checking database connection and verifying `pgvector` extension alignment...');
   try {
     await prisma.$executeRaw`CREATE EXTENSION IF NOT EXISTS vector;`;
-    console.log('✅ pgvector extension (`vector`) is active and registered inside PostgreSQL.');
+    console.log('pgvector extension (`vector`) is active and registered inside PostgreSQL.');
   } catch (err: any) {
-    console.warn('⚠️ Could not execute `CREATE EXTENSION vector;` directly (may require superuser permissions or already exist):', err.message);
+    console.warn(' Could not execute `CREATE EXTENSION vector;` directly (may require superuser permissions or already exist):', err.message);
   }
 
   const now = new Date();
@@ -1021,7 +1021,7 @@ async function main() {
   });
 
   if (unpatchedTickets.length > 0) {
-    console.log(`🔍 Found ${unpatchedTickets.length} unpatched or unindexed tickets. Patching with realistic resolution text & vectors...`);
+    console.log(`Found ${unpatchedTickets.length} unpatched or unindexed tickets. Patching with realistic resolution text & vectors...`);
     let patchCount = 0;
     for (const t of unpatchedTickets) {
       const summaryText = t.resolutionSummary && t.resolutionSummary.trim().length > 0
@@ -1042,9 +1042,9 @@ async function main() {
       `;
       patchCount++;
     }
-    console.log(`✅ Successfully patched and embedded ${patchCount} existing tickets.`);
+    console.log(`Successfully patched and embedded ${patchCount} existing tickets.`);
   } else {
-    console.log('✅ No existing tickets require patching.');
+    console.log('No existing tickets require patching.');
   }
 
   // STEP 3: BULK-GENERATE DENSE DATASET IF NOT ALREADY SEEDED
@@ -1053,19 +1053,19 @@ async function main() {
   const targetMinTickets = 100;
 
   if (totalTickets >= targetMinTickets) {
-    console.log(`ℹ️ Database already contains ${totalTickets} total tickets (meeting or exceeding target ${targetMinTickets}). Pipeline complete.`);
+    console.log(`Database already contains ${totalTickets} total tickets (meeting or exceeding target ${targetMinTickets}). Pipeline complete.`);
     return;
   }
 
   const ticketsNeeded = targetMinTickets - totalTickets;
-  console.log(`📈 Database currently has ${totalTickets} tickets. Bulk-inserting ${ticketsNeeded} dense technical tickets to reach target ${targetMinTickets}...`);
+  console.log(`Database currently has ${totalTickets} tickets. Bulk-inserting ${ticketsNeeded} dense technical tickets to reach target ${targetMinTickets}...`);
 
   const adminUser = await prisma.user.findFirst({
     where: { systemRole: SystemRole.SUPER_ADMIN }
   });
 
   if (!adminUser) {
-    throw new Error('❌ Could not find a SUPER_ADMIN user in the database. Please run `npx prisma db seed` first to establish initial user records.');
+    throw new Error('Could not find a SUPER_ADMIN user in the database. Please run `npx prisma db seed` first to establish initial user records.');
   }
 
   const resolvedStatus: any = await (prisma as any).masterStatus.findFirst({
@@ -1118,19 +1118,19 @@ async function main() {
         console.log(`   Progress: [${insertCount}/${ticketsNeeded}] tickets seeded and vector-indexed cleanly.`);
       }
     } catch (err: any) {
-      console.error(`❌ Error inserting ticket #${i + 1}:`, err.message);
+      console.error(`Error inserting ticket #${i + 1}:`, err.message);
     }
   }
 
-  console.log(`\n🎉 Master Pipeline Complete: Successfully synced database, patched missing data, and bulk-generated ${insertCount} new technical tickets!`);
+  console.log(`\n Master Pipeline Complete: Successfully synced database, patched missing data, and bulk-generated ${insertCount} new technical tickets!`);
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Master Seeder Execution Threw Fatal Error:', e);
+    console.error('Master Seeder Execution Threw Fatal Error:', e);
   })
   .finally(async () => {
-    console.log('🔌 Closing database connections cleanly...');
+    console.log('Closing database connections cleanly...');
     await prisma.$disconnect();
     await pool.end();
   });

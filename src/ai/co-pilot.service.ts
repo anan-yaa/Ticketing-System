@@ -16,9 +16,9 @@ export class CoPilotService {
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey && apiKey.trim().length > 0 && apiKey !== 'your-gemini-api-key') {
       this.genAI = new GoogleGenerativeAI(apiKey.trim());
-      this.logger.log(`✅ CoPilotService initialized with Google Gemini model [${this.modelName}].`);
+      this.logger.log(`CoPilotService initialized with Google Gemini model [${this.modelName}].`);
     } else {
-      this.logger.warn('⚠️ GEMINI_API_KEY is missing or invalid in environment variables. CoPilotService will operate using historical RAG semantic fallback mode.');
+      this.logger.warn('GEMINI_API_KEY is missing or invalid in environment variables. CoPilotService will operate using historical RAG semantic fallback mode.');
     }
   }
 

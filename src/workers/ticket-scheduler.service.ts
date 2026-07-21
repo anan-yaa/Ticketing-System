@@ -16,7 +16,7 @@ export class TicketSchedulerService {
     const currentMinute = now.getMinutes();
 
     try {
-      // 🔍 THE FIX: Clean query filtering without the old dead text category column
+      //  Clean query filtering without the old dead text category column
       const matchingTasks = await this.prisma.scheduledTask.findMany({
         where: {
           dayOfMonth: currentDay,
@@ -25,13 +25,13 @@ export class TicketSchedulerService {
           isActive: true,
         },
         include: {
-          masterCategory: true // 👈 Dynamic load of the real linked table entity properties
+          masterCategory: true // Dynamic load of the real linked table entity properties
         }
       });
 
       if (matchingTasks.length === 0) return;
 
-      this.logger.log(`🎯 Found ${matchingTasks.length} recurring blueprints to run.`);
+      this.logger.log(`Found ${matchingTasks.length} recurring blueprints to run.`);
 
       for (const task of matchingTasks) {
         const fallbackUser = await this.prisma.user.findFirst({
@@ -39,7 +39,7 @@ export class TicketSchedulerService {
         });
 
         if (!fallbackUser) {
-          this.logger.error('❌ Skipping execution: No SUPER_ADMIN found to link relation.');
+          this.logger.error('Skipping execution: No SUPER_ADMIN found to link relation.');
           continue;
         }
 
@@ -52,7 +52,7 @@ export class TicketSchedulerService {
             source: 'SYSTEM',
             createdAt: now,
 
-            // 🔗 Pull categorization cleanly directly from the linked master record name 
+            // Pull categorization cleanly directly from the linked master record name 
             category: task.masterCategory?.name || 'GENERAL',
 
             // Restore mandatory SLA telemetry fields 
@@ -68,10 +68,10 @@ export class TicketSchedulerService {
           },
         });
 
-        this.logger.log(`✅ Automated Ticket Instantiated: "${task.title}" under Category [${task.masterCategory?.name}]`);
+        this.logger.log(`Automated Ticket Instantiated: "${task.title}" under Category [${task.masterCategory?.name}]`);
       }
     } catch (error) {
-      this.logger.error('❌ AUTOMATION WORKER EXCEPTION:', error.stack || error.message);
+      this.logger.error('AUTOMATION WORKER EXCEPTION:', error.stack || error.message);
     }
   }
 
@@ -97,13 +97,13 @@ export class TicketSchedulerService {
           }
         });
       } catch (error) {
-        this.logger.error('❌ DB Schema Mismatch in Snoozed Wakeup Worker:', error.message);
+        this.logger.error('DB Schema Mismatch in Snoozed Wakeup Worker:', error.message);
         return;
       }
 
       if (expiredTickets.length === 0) return;
 
-      this.logger.log(`⏳ Found ${expiredTickets.length} snoozed tickets ready to wake up.`);
+      this.logger.log(`Found ${expiredTickets.length} snoozed tickets ready to wake up.`);
 
       for (const ticket of expiredTickets) {
         await this.prisma.ticket.update({
@@ -116,10 +116,10 @@ export class TicketSchedulerService {
           }
         });
 
-        this.logger.log(`⏰ Woke up Ticket #${ticket.ticketSeq} (ID: ${ticket.id}). Restored to active queues.`);
+        this.logger.log(`Woke up Ticket #${ticket.ticketSeq} (ID: ${ticket.id}). Restored to active queues.`);
       }
     } catch (error) {
-      this.logger.error('❌ SNOOZE RESTORATION WORKER EXCEPTION:', error.stack || error.message);
+      this.logger.error('SNOOZE RESTORATION WORKER EXCEPTION:', error.stack || error.message);
     }
   }
   @Cron('* * * * *')
@@ -176,15 +176,15 @@ export class TicketSchedulerService {
             data: updateData
           });
           breachedCount++;
-          this.logger.warn(`⚠️ SLA Threshold Breached -> Ticket #${ticket.ticketSeq} (ID: ${ticket.id})`);
+          this.logger.warn(`SLA Threshold Breached -> Ticket #${ticket.ticketSeq} (ID: ${ticket.id})`);
         }
       }
 
       if (breachedCount > 0) {
-        this.logger.log(`⏰ SLA Monitor completed. Flagged ${breachedCount} tickets for breaches.`);
+        this.logger.log(`SLA Monitor completed. Flagged ${breachedCount} tickets for breaches.`);
       }
     } catch (error) {
-      this.logger.error('❌ SLA MONITORING WORKER EXCEPTION:', error.stack || error.message);
+      this.logger.error('SLA MONITORING WORKER EXCEPTION:', error.stack || error.message);
     }
   }
 }

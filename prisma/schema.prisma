@@ -343,7 +343,7 @@ model ScheduledTask {
   minute       Int
   isActive     Boolean @default(true)
 
-  // 🔗 Dynamic Relational Link to MasterCategory Table
+  // Dynamic Relational Link to MasterCategory Table
   masterCategoryId String
   masterCategory   MasterCategory @relation(fields: [masterCategoryId], references: [id])
 

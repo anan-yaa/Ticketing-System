@@ -657,7 +657,7 @@ export class TicketsService {
         } as any,
       });
     } catch (error) {
-      console.error('❌ DB Schema Mismatch in Scheduled Tickets Worker:', error.message);
+      console.error('DB Schema Mismatch in Scheduled Tickets Worker:', error.message);
       return; // Fail gracefully without crashing the NestJS context
     }
 
@@ -834,7 +834,7 @@ export class TicketsService {
       }
     });
 
-    this.logger.log(`✅ Data Migration Complete: Successfully linked ${updatedCount} tickets to MasterStatus IDs.`);
+    this.logger.log(`Data Migration Complete: Successfully linked ${updatedCount} tickets to MasterStatus IDs.`);
     return { 
       status: 'success', 
       message: `Successfully linked ${updatedCount} tickets to relational MasterStatus keys.` 
@@ -909,10 +909,10 @@ export class TicketsService {
         WHERE "id" = ${ticket.id}
       `;
 
-      this.logger.log(`✅ Real-Time Vector Ingestion Success! Ticket #${ticket.ticketSeq || ticket.id.slice(0, 8)} embedded (${vector.length} dims) and committed to pgvector column.`);
+      this.logger.log(`Real-Time Vector Ingestion Success! Ticket #${ticket.ticketSeq || ticket.id.slice(0, 8)} embedded (${vector.length} dims) and committed to pgvector column.`);
     } catch (error: any) {
       // 4. Fault tolerance: safely caught and logged so external API failure never blocks primary transaction or slows request lifecycle
-      this.logger.error(`❌ Real-Time Vector Ingestion Failed for Ticket [${ticketId}]: ${error?.message || error}. Setting isIndexedToVectorDb = false for retry.`);
+      this.logger.error(`Real-Time Vector Ingestion Failed for Ticket [${ticketId}]: ${error?.message || error}. Setting isIndexedToVectorDb = false for retry.`);
       
       try {
         await this.prisma.ticket.update({

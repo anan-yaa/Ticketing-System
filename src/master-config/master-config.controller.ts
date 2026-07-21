@@ -15,14 +15,12 @@ export class MasterConfigController {
   @Get('categories')
   async getCategories(@Query('activeOnly') activeOnly?: string) {
     const data = await this.configService.getCategories(activeOnly === 'true');
-    this.logger.log(`📦 GET /master-config/categories → returned ${data.length} records`);
     return data;
   }
 
   @Post('categories')
   @Permissions('MASTER_DATA_UPDATE')
   async createCategory(@Body() dto: CreateConfigDto) {
-    console.log("📥 [BACKEND RECEIVED] Incoming request parameters:", dto);
     return this.configService.createCategory(dto);
   }
 

@@ -47,7 +47,7 @@ export default function CreateUserPage() {
     },
     onError: (err: any) => {
       showToast(err.response?.data?.message || 'Failed to register new user instance', 'error');
-      console.error("❌ Failed to register new user instance:", err);
+      console.error("Failed to register new user instance:", err);
     }
   });
 

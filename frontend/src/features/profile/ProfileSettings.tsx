@@ -252,7 +252,7 @@ const ProfileSettings: React.FC = () => {
                 : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-white/5'
                 }`}
             >
-              📅 Scheduled Tasks
+              Scheduled Tasks
             </button>
           )}
         </div>

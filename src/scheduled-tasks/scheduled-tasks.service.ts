@@ -6,7 +6,7 @@ export class ScheduledTasksService {
   constructor(private prisma: PrismaService) {}
 
   async findAll() {
-    // 🔗 THE FIX: Explicitly include masterCategory properties so the UI can render category names
+    // THE FIX: Explicitly include masterCategory properties so the UI can render category names
     return this.prisma.scheduledTask.findMany({
       include: {
         masterCategory: true,
@@ -28,7 +28,7 @@ export class ScheduledTasksService {
         minute: Number(data.minute),
         isActive: data.isActive ?? true,
 
-        // 🔗 THE CRITICAL FIX: Explicitly connect the mandatory foreign key relation
+        // THE CRITICAL FIX: Explicitly connect the mandatory foreign key relation
         masterCategory: {
           connect: { id: data.masterCategoryId }
         }

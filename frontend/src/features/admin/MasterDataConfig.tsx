@@ -159,7 +159,7 @@ export const MasterDataConfig: React.FC = () => {
       return api.post('/master-config/categories', data);
     },
     onSuccess: (response: any) => {
-      console.log("✅ [FRONTEND SUCCESS] Server responded with:", response.data);
+      console.log("[FRONTEND SUCCESS] Server responded with:", response.data);
       queryClient.invalidateQueries({ queryKey: ['master-categories'] });
       setNewCategory('');
       setNewCategoryDesc('');
@@ -167,7 +167,7 @@ export const MasterDataConfig: React.FC = () => {
       showToast('Category added successfully', 'success');
     },
     onError: (err: any) => {
-      console.error("❌ [FRONTEND NETWORK ERROR] API communication failed:", err);
+      console.error("[FRONTEND NETWORK ERROR] API communication failed:", err);
       const errMsg = err.response?.data?.message || 'Failed to add Category';
       showToast(errMsg, 'error');
     },

@@ -8,7 +8,7 @@ export class VectorService implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit(): Promise<void> {
-    this.logger.log('✅ pgvector service connected directly to local PostgreSQL engine context.');
+    this.logger.log('pgvector service connected directly to local PostgreSQL engine context.');
   }
 
   async onModuleDestroy(): Promise<void> {

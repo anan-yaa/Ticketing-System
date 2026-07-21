@@ -8,7 +8,7 @@ const api = axios.create({
   },
 });
 
-// ✅ REQUEST INTERCEPTOR: Inject Bearer token on every outgoing request
+// REQUEST INTERCEPTOR: Inject Bearer token on every outgoing request
 api.interceptors.request.use(
   (config) => {
     // 'jwt_token' is the key set by AuthContext.tsx on login
@@ -17,7 +17,7 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     } else {
-      console.warn('⚠️ No authorization token found in storage!');
+      console.warn('No authorization token found in storage!');
     }
 
     return config;
@@ -25,14 +25,14 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ✅ RESPONSE INTERCEPTOR: Handle 401 globally — clear stale token and redirect to login
+// RESPONSE INTERCEPTOR: Handle 401 globally — clear stale token and redirect to login
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
       const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/';
       if (!isLoginPage) {
-        console.warn('🔒 Session expired or invalid token. Redirecting to login...');
+        console.warn('Session expired or invalid token. Redirecting to login...');
         localStorage.removeItem('jwt_token');
         localStorage.removeItem('user');
         window.location.href = '/login';

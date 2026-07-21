@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchAllTicketsAdmin, createTicketAdmin, updateTicketCoreData, Ticket } from '../../api/tickets';
@@ -75,7 +75,7 @@ export const AdminTicketsQueue: React.FC = () => {
 
     try {
       await api.patch(`/tickets/${selectedTicket.id}/temporary-closure`, {
-        snoozedUntil: combinedTarget.toISOString() // 🔗 Dispatches precise timestamp to database
+        snoozedUntil: combinedTarget.toISOString() // Dispatches precise timestamp to database
       });
       setSelectedTicket(null); // or update to res.data if keeping modal open
       setIsSnoozeModalOpen(false);
@@ -83,7 +83,7 @@ export const AdminTicketsQueue: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['activeTicketsList'] });
       setToast({ message: 'Ticket successfully snoozed', type: 'success' });
     } catch (err) {
-      console.error("❌ Failed to commit snooze parameters:", err);
+      console.error("Failed to commit snooze parameters:", err);
       setToast({ message: 'Failed to snooze ticket', type: 'error' });
     }
   };
@@ -235,7 +235,7 @@ export const AdminTicketsQueue: React.FC = () => {
         const dataRows = Array.isArray(response.data) ? response.data : response.data?.data || [];
         setStatusOptions(dataRows);
       } catch (err) {
-        console.error("❌ Failed to fetch custom status list:", err);
+        console.error("Failed to fetch custom status list:", err);
       }
     };
     loadSystemStatuses();
@@ -270,7 +270,7 @@ export const AdminTicketsQueue: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['ticketDetails', selectedTicket.id] });
       }
     } catch (err) {
-      console.error("❌ Failed to update ticket status payload:", err);
+      console.error("Failed to update ticket status payload:", err);
       setToast({ message: 'Failed to update Status', type: 'error' });
     }
   };

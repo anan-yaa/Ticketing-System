@@ -6,7 +6,7 @@ export interface Ticket {
   description: string;
   status: 'OPEN' | 'IN_PROGRESS' | 'CLOSED' | string;
   
-  // 🔗 New Relational Layout Properties
+  // New Relational Layout Properties
   statusId?: string; 
   masterStatus?: {
     id: string;
