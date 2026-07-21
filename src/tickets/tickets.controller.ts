@@ -143,6 +143,12 @@ export class TicketsController {
 
   // ─── BARE :id WILDCARD ROUTES LAST ───────────────────────────────────────
 
+  @Get(':id')
+  @Permissions('TICKET_VIEW')
+  async getTicketById(@Param('id') id: string) {
+    return this.ticketsService.findOne(id);
+  }
+
   @Patch(':id')
   @Permissions('TICKET_UPDATE')
   async updateTicket(@Param('id') id: string, @Body() body: any) {

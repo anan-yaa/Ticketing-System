@@ -22,27 +22,8 @@ export class CoPilotController {
    */
   @Get('suggestions/:ticketId')
   @HttpCode(HttpStatus.OK)
-  async getSuggestions(@Param('ticketId') ticketId: string): Promise<{
-    suggestedSteps: string[];
-    confidenceScore: number;
-  }> {
-    try {
-      this.logger.log(`Received request for AI Co-Pilot suggestions for ticket ID: [${ticketId}]`);
-      const suggestions = await this.coPilotService.getAiSuggestedSteps(ticketId);
-      return suggestions;
-    } catch (error: any) {
-      if (
-        error instanceof NotFoundException ||
-        error?.status === 404 ||
-        error?.message?.toLowerCase().includes('not found')
-      ) {
-        this.logger.warn(`Ticket ID [${ticketId}] not found during Co-Pilot suggestion request.`);
-        throw new NotFoundException(`Ticket with ID [${ticketId}] does not exist.`);
-      }
-      this.logger.error(`Error processing AI Co-Pilot suggestions for ticket ID [${ticketId}]:`, error?.stack || error);
-      throw new InternalServerErrorException(
-        `Failed to generate Co-Pilot suggestions: ${error?.message || 'Internal server error'}`,
-      );
-    }
+  async getSuggestions(@Param('ticketId') ticketId: string) {
+    this.logger.log(`Received request for AI Co-Pilot suggestions for ticket ID: [${ticketId}]`);
+    return await this.coPilotService.getSuggestions(ticketId);
   }
 }

@@ -56,6 +56,16 @@ export class TicketsService {
     };
   }
 
+  async findOne(id: string) {
+    const ticket = await this.findTicketById(id);
+    
+    if (!ticket) {
+      throw new NotFoundException(`Ticket with ID ${id} not found`);
+    }
+
+    return this.formatTicket(ticket);
+  }
+
   async createTicket(user: any, data: CreateTicketDto) {
     const { title, description, category, source = 'PORTAL', ticketSource, status, isRecurring, cronExpression, executeAt } = data;
 
@@ -224,6 +234,14 @@ export class TicketsService {
     const { title, description, priority, category, status, resolutionSummary } = data;
     const ticket = await this.findTicketById(ticketId);
     if (!ticket) throw new NotFoundException('Ticket not found');
+
+    const targetStatus = status || ticket.status;
+    if (targetStatus === 'RESOLVED' || targetStatus === 'CLOSED') {
+      const finalResolution = resolutionSummary !== undefined ? resolutionSummary : ticket.resolutionSummary;
+      if (!finalResolution || finalResolution.trim() === '') {
+        throw new BadRequestException('A resolution summary is required to resolve or close a ticket.');
+      }
+    }
 
     const updatePayload: any = {
       title,
@@ -396,6 +414,14 @@ export class TicketsService {
     const { timeSpentTracking, ticketId: _tid, scheduledAt, isArchived, archivedAt, closedBy, slaTimerActive, ...prismaData } = data as any;
     const timeSpentMin = timeSpentTracking !== undefined ? timeSpentTracking : data.timeSpentMin;
 
+    const targetStatus = prismaData.status || ticket.status;
+    if (targetStatus === 'RESOLVED' || targetStatus === 'CLOSED') {
+      const finalResolution = prismaData.resolutionSummary !== undefined ? prismaData.resolutionSummary : ticket.resolutionSummary;
+      if (!finalResolution || finalResolution.trim() === '') {
+        throw new BadRequestException('A resolution summary is required to resolve or close a ticket.');
+      }
+    }
+
     const parsedScheduledAt = scheduledAt ? new Date(scheduledAt) : null;
     
     // Process Automation Flags
@@ -485,6 +511,12 @@ export class TicketsService {
     const finalStatus = updateData.status || ticket.status;
     const finalSubStatus = updateData.subStatus !== undefined ? updateData.subStatus : ticket.subStatus;
     
+    if (finalStatus === 'RESOLVED' || finalStatus === 'CLOSED') {
+      if (!ticket.resolutionSummary || ticket.resolutionSummary.trim() === '') {
+        throw new BadRequestException('A resolution summary is required to resolve or close a ticket.');
+      }
+    }
+
     if (masterStatus) {
       // 2. EXECUTE ARCHIVAL OR PAUSE LOGIC
       
@@ -892,8 +924,8 @@ export class TicketsService {
 
       // 2. Compute fresh 1536-dimensional float vector array from the combined string:
       // "Subject: ${title} \n Description: ${description} \n Solution: ${resolutionSummary}"
-      const combinedString = `Subject: ${ticket.title} \n Description: ${ticket.description} \n Solution: ${resolutionStr}`;
-      const vector = await this.generateEmbeddingVector(combinedString);
+      const contextText = `Title: ${ticket.title} | Category: ${ticket.category} | Description: ${ticket.description} | Resolution: ${resolutionStr}`;
+      const vector = await this.generateEmbeddingVector(contextText);
 
       // 3. Execute the raw prisma.$executeRaw update query statement to stream this new embedding string
       // into the database 'embedding' column for that ticket record, flipping 'isIndexedToVectorDb' to true
@@ -905,7 +937,8 @@ export class TicketsService {
         UPDATE "Ticket"
         SET "embedding" = ${postgresVectorString}::vector,
             "isIndexedToVectorDb" = true,
-            "vectorIndexedAt" = ${now}
+            "vectorIndexedAt" = ${now},
+            "resolvedAt" = ${now}
         WHERE "id" = ${ticket.id}
       `;
 
