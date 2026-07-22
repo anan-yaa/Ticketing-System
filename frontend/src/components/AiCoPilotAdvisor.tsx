@@ -55,9 +55,13 @@ export const AiCoPilotAdvisor: React.FC<AiCoPilotAdvisorProps> = ({
     setAppliedSuccess(false);
 
     try {
-      const response = await api.get<CoPilotResponse>(`/ai/co-pilot/suggestions/${ticketId}`);
-      if (response.data && Array.isArray(response.data.suggestedSteps)) {
-        setData(response.data);
+      const response = await api.get<any>(`/ai/co-pilot/suggestions/${ticketId}`);
+      const rawSteps = response.data?.suggestedSteps || response.data?.suggestions || [];
+      if (response.data && Array.isArray(rawSteps) && rawSteps.length > 0) {
+        setData({
+          suggestedSteps: rawSteps,
+          confidenceScore: response.data.confidenceScore ?? 0.8,
+        });
       } else {
         throw new Error('Malformed structural payload returned by Co-Pilot endpoint.');
       }

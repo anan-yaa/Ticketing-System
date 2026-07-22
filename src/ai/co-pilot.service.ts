@@ -24,12 +24,45 @@ export class CoPilotService {
 
 
   /**
-   * Generates a deterministic 1536-dimensional float vector matching our master seeder logic.
+   * Generates a 1536-dimensional query embedding vector.
+   * Priority 1: Gemini text-embedding-004 (real semantic embedding, padded to 1536).
+   * Priority 2: Deterministic SHA-256 pseudo-embedding (local dev fallback).
    */
-  private generateQueryVector1536(seedText: string): number[] {
+  private async generateQueryVector1536(seedText: string): Promise<number[]> {
+    // ── Priority 1: Gemini text-embedding-004 ───────────────────────────────────
+    if (this.genAI) {
+      try {
+        const embeddingModel = this.genAI.getGenerativeModel({ model: 'text-embedding-004' });
+        const result: any = await Promise.race([
+          embeddingModel.embedContent(seedText),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Embedding timeout after 8s')), 8000)
+          ),
+        ]);
+
+        const rawVector: number[] = result.embedding.values;
+        if (rawVector && rawVector.length > 0) {
+          const target = 1536;
+          const padded: number[] = new Array(target);
+          for (let i = 0; i < target; i++) padded[i] = rawVector[i % rawVector.length];
+
+          let sumSq = padded.reduce((acc, v) => acc + v * v, 0);
+          const mag = Math.sqrt(sumSq) || 1;
+          for (let i = 0; i < target; i++) padded[i] = padded[i] / mag;
+
+          this.logger.debug(`[RAG] Gemini embedding produced ${rawVector.length}-dim vector, padded to ${target}.`);
+          return padded;
+        }
+      } catch (embErr: any) {
+        this.logger.warn(`[RAG] Gemini embedding failed (${embErr.message}). Using deterministic fallback.`);
+      }
+    }
+
+    // ── Priority 2: Deterministic SHA-256 pseudo-embedding ──────────────────────
+    this.logger.debug('[RAG] Using deterministic SHA-256 pseudo-embedding for query vector.');
     const dimensions = 1536;
     const vector: number[] = new Array(dimensions);
-    
+
     let hash = 0;
     for (let i = 0; i < seedText.length; i++) {
       hash = (hash << 5) - hash + seedText.charCodeAt(i);
@@ -74,9 +107,9 @@ export class CoPilotService {
     }
 
     try {
-      // 2. Generate 1536-dimensional query embedding vector
+      // 2. Generate 1536-dimensional query embedding vector (Gemini or deterministic fallback)
       const querySeedString = `Subject: ${ticket.title || ''} \n Description: ${ticket.description || ''}`;
-      const queryVector = this.generateQueryVector1536(querySeedString);
+      const queryVector = await this.generateQueryVector1536(querySeedString);
 
       // 3. Execute semantic search query in pgvector
       const matches = await this.vectorService.querySimilarDocuments(

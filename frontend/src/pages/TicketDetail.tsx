@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { fetchTicketById, updateTicket } from '../api/tickets';
 import { useAuth } from '../context/AuthContext';
+import { AiCoPilotAdvisor } from '../components/AiCoPilotAdvisor';
 
 interface FormValues {
   status: string;
@@ -29,7 +30,7 @@ export const TicketDetail: React.FC = () => {
     enabled: !!id,
   });
 
-  const { control, handleSubmit, watch, reset, formState: { errors } } = useForm<FormValues>({
+  const { control, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm<FormValues>({
     defaultValues: {
       status: '',
       resolutionSummary: '',
@@ -227,8 +228,8 @@ export const TicketDetail: React.FC = () => {
             
           </div>
 
-          {/* Right Sidebar - Core Information Panel */}
-          <div className="lg:col-span-1">
+          {/* Right Sidebar - Core Information Panel & AI Co-Pilot Advisor */}
+          <div className="lg:col-span-1 space-y-6">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden sticky top-6">
               
               <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between">
@@ -290,6 +291,15 @@ export const TicketDetail: React.FC = () => {
 
               </div>
             </div>
+
+            {/* AI Co-Pilot Advisor Card */}
+            <AiCoPilotAdvisor
+              ticketId={ticket.originalId || ticket.id}
+              ticketTitle={ticket.title}
+              onApplyToResolutionNotes={(suggestionText: string) => {
+                setValue('resolutionSummary', suggestionText, { shouldValidate: true, shouldDirty: true });
+              }}
+            />
           </div>
           
         </div>
