@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Patch, Delete, Body, Param, UseGuards, Request, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Delete, Body, Param, UseGuards, Request, BadRequestException, Query } from '@nestjs/common';
 import { TicketsService } from './tickets.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
@@ -84,8 +84,14 @@ export class TicketsController {
 
   @Get('admin/all')
   @Permissions('TICKET_VIEW')
-  async getAllTickets() {
-    return this.ticketsService.getAllTickets();
+  async getAllTickets(
+    @Query('queueId') queueId?: string,
+    @Query('serviceContract') serviceContract?: string,
+    @Query('ticketType') ticketType?: string,
+    @Query('category') category?: string,
+    @Query('status') status?: string
+  ) {
+    return this.ticketsService.getAllTickets(queueId, serviceContract, ticketType, category, status);
   }
 
   // ─── SPECIFIC SUB-RESOURCE ROUTES BEFORE BARE :id WILDCARDS ─────────────

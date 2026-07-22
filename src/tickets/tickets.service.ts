@@ -6,6 +6,7 @@ import { UpdateCoreDataDto } from './dto/update-core-data.dto';
 import { SlaService } from './sla.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { VectorService } from '../ai/vector.service';
+import { AiClassificationService } from '../ai/ai-classification.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -16,6 +17,7 @@ export class TicketsService {
     private prisma: PrismaService,
     private slaService: SlaService,
     private vectorService: VectorService,
+    private aiClassificationService: AiClassificationService,
   ) { }
 
   private async findTicketById(idOrSeq: string): Promise<any> {
@@ -67,7 +69,60 @@ export class TicketsService {
   }
 
   async createTicket(user: any, data: CreateTicketDto) {
-    const { title, description, category, source = 'PORTAL', ticketSource, status, isRecurring, cronExpression, executeAt } = data;
+    const { title, description, source = 'PORTAL', ticketSource, status, isRecurring, cronExpression, executeAt } = data;
+
+    // ── AI Auto-Triage: classify missing fields when not explicitly provided ────
+    const needsAiTriage =
+      !data.category ||
+      !data.ticketType ||
+      !data.priority ||
+      data.category === 'General Support';
+
+    if (needsAiTriage) {
+      try {
+        const classification = await this.aiClassificationService.classifyTicket(title, description);
+
+        if (!data.category || data.category === 'General Support') {
+          data.category = classification.category;
+        }
+        if (!data.ticketType) {
+          data.ticketType = classification.ticketType;
+        }
+        if (!data.priority) {
+          data.priority = classification.priority as any;
+        }
+
+        // Auto-resolve queueId from AI-suggested category if not explicitly provided
+        if (!data.queueId && classification.category) {
+          try {
+            const matchedQueue = await this.prisma.masterAssignmentGroup.findFirst({
+              where: {
+                OR: [
+                  { name: { contains: classification.category, mode: 'insensitive' } },
+                  { description: { contains: classification.category, mode: 'insensitive' } },
+                ],
+                isActive: true,
+              },
+              include: { service: true },
+            });
+            if (matchedQueue) {
+              data.queueId = matchedQueue.id;
+              this.logger.log(`[AiTriage] Auto-assigned queueId [${matchedQueue.id}] → "${matchedQueue.name}"`);
+            }
+          } catch (qErr: any) {
+            this.logger.warn(`[AiTriage] Queue lookup failed: ${qErr.message}`);
+          }
+        }
+
+        this.logger.log(
+          `[AiTriage] Ticket "${title}" auto-classified → ` +
+          `category: "${data.category}", type: "${data.ticketType}", priority: "${data.priority}"`
+        );
+      } catch (err: any) {
+        // Classification error or timeout — proceed with safe defaults, never block creation
+        this.logger.warn(`[AiTriage] Classification skipped: ${err.message}. Using submitted/default values.`);
+      }
+    }
 
     // Normalize priority to uppercase enum value (e.g. "high" → "HIGH")
     const rawPriority = data.priority ? String(data.priority).toUpperCase() : 'LOW';
@@ -80,7 +135,7 @@ export class TicketsService {
       targetCustomerId = data.customerId;
     }
 
-    const autoCategory = category || 'General Support';
+    const autoCategory = data.category || 'General Support';
 
     // Step A & B: Query the database configuration table for the active SLA matrix settings
     const activeConfig = await this.prisma.slaMatrix.findUnique({
@@ -312,8 +367,55 @@ export class TicketsService {
   }
 
   // GET /tickets/admin/all (Admin/SuperAdmin)
-  async getAllTickets() {
+  async getAllTickets(
+    queueId?: string,
+    serviceContract?: string,
+    ticketType?: string,
+    category?: string,
+    status?: string
+  ) {
+    // ── Build queue/group identity filter (OR across all possible FK columns) ──
+    const queueOrGroup = queueId || serviceContract;
+    const queueIdentityFilter = queueOrGroup
+      ? {
+          OR: [
+            { queueId: queueOrGroup },
+            { serviceContract: queueOrGroup },
+            { category: queueOrGroup },
+          ],
+        }
+      : null;
+
+    // ── Build type/category text filter (contains-insensitive across type + category) ──
+    const typeOrCategory = ticketType || category;
+    const typeTextFilter = typeOrCategory
+      ? {
+          OR: [
+            { ticketType: { contains: typeOrCategory, mode: 'insensitive' as const } },
+            { category: { contains: typeOrCategory, mode: 'insensitive' as const } },
+            { serviceContract: { contains: typeOrCategory, mode: 'insensitive' as const } },
+          ],
+        }
+      : null;
+
+    // ── Combine filters with AND when multiple constraints exist ──
+    let whereClause: any = {};
+    if (queueIdentityFilter && typeTextFilter) {
+      whereClause = { AND: [queueIdentityFilter, typeTextFilter] };
+    } else if (queueIdentityFilter) {
+      whereClause = queueIdentityFilter;
+    } else if (typeTextFilter) {
+      whereClause = typeTextFilter;
+    }
+
+    if (status) {
+      whereClause.status = status as any;
+    }
+
+    this.logger.log('Executing tickets query with filter: ' + JSON.stringify(whereClause));
+
     const tickets = await this.prisma.ticket.findMany({
+      where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
       orderBy: { createdAt: 'desc' },
       include: {
         customer: { select: { name: true, email: true } },

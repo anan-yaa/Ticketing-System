@@ -5,11 +5,13 @@ import { CoPilotService } from './co-pilot.service';
 import { KnowledgeBaseController } from './knowledge-base.controller';
 import { KnowledgeBaseSeederService } from './knowledge-base-seeder.service';
 import { VectorService } from './vector.service';
+import { AiClassificationService } from './ai-classification.service';
 
 @Global()
 @Module({
   imports: [VectorModule],
   controllers: [CoPilotController],
-  exports: [VectorModule],
+  providers: [AiClassificationService],
+  exports: [VectorModule, AiClassificationService],
 })
 export class AiModule {}

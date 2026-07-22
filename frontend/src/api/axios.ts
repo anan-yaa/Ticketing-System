@@ -17,7 +17,7 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     } else {
-      console.warn('No authorization token found in storage!');
+      // Intentionally omitting console.warn to avoid console clutter on public routes or initialization
     }
 
     return config;

@@ -105,11 +105,8 @@ export const AdminTicketsQueue: React.FC = () => {
   const { data: serverStatuses = [] } = useQuery({
     queryKey: ['activeMasterStatuses'],
     queryFn: async () => {
-      const res = await api.get('/admin/master-config/statuses').catch(async () => {
-        // Fallback in case endpoint is not nested under /admin
-        return await api.get('/master-config/statuses');
-      });
-      return res.data;
+      const res = await api.get('/master-config/statuses');
+      return Array.isArray(res.data) ? res.data : (res.data?.data || []);
     }
   });
 
@@ -290,7 +287,46 @@ export const AdminTicketsQueue: React.FC = () => {
   // Fetch Tickets
   const { data: tickets = [], isLoading: isLoadingTickets, isError: isErrorTickets } = useQuery<Ticket[]>({
     queryKey: ['admin-tickets'],
-    queryFn: fetchAllTicketsAdmin,
+    queryFn: () => fetchAllTicketsAdmin(),
+  });
+
+  const { data: dynamicQueueTickets = [], isLoading: isLoadingDynamic } = useQuery<Ticket[]>({
+    queryKey: ['admin-tickets-dynamic', selectedGroupFilter],
+    queryFn: () => {
+      const rawFilter = selectedGroupFilter;
+      let cleanKey = rawFilter;
+      let typeFilter: string | null = null;
+
+      // Composite key: "UUID_OR_NAME::TICKETTYPE"
+      if (rawFilter.includes('::')) {
+        const parts = rawFilter.split('::');
+        cleanKey = parts[0];
+        // The suffix is ticket.ticketType uppercased — pass it lowercase for case-insensitive match
+        typeFilter = parts[1];
+      }
+
+      const params: Record<string, string> = {};
+
+      if (cleanKey) {
+        // UUID heuristic: contains hyphens and is >= 32 chars
+        // IMPORTANT: sidebar uppercases groupName for display — must lowercase back to match DB storage
+        if (cleanKey.includes('-') && cleanKey.length >= 32) {
+          params.queueId = cleanKey.toLowerCase();
+        } else {
+          // It's a human-readable service group / contract name
+          params.serviceContract = cleanKey;
+        }
+      }
+
+      // ticketType suffix from sidebar — lowercase for case-insensitive backend contains match
+      if (typeFilter) {
+        params.ticketType = typeFilter.toLowerCase();
+      }
+
+      console.log('Fetching queue with params:', params);
+      return fetchAllTicketsAdmin(params);
+    },
+    enabled: selectedGroupFilter !== 'ALL',
   });
 
   // Fetch Users for customer selection
@@ -335,13 +371,12 @@ export const AdminTicketsQueue: React.FC = () => {
 
 
   // Fetch Assignment Groups
-  const { data: assignmentGroups, isLoading: isLoadingGroups } = useQuery({
+  const { data: assignmentGroups = [], isLoading: isLoadingGroups } = useQuery({
     queryKey: ['masterAssignmentGroupsList'],
     queryFn: async () => {
       const res = await api.get('/master-config/groups');
-      return res.data;
-    },
-    enabled: isCoreDataModalOpen,
+      return Array.isArray(res.data) ? res.data : (res.data?.data || []);
+    }
   });
 
   // Fetch SLA Config for Selected Type
@@ -518,8 +553,9 @@ export const AdminTicketsQueue: React.FC = () => {
   });
 
   // Filter tickets for "Open Queue" (all active tickets: not resolved and not archived)
-  const openQueueTickets = groupFilteredTickets.filter(
-    (t) => !t.resolvedAt && !t.masterStatus?.isArchived && t.status !== 'CLOSED' && t.status !== 'RESOLVED'
+  const sourceTickets = selectedGroupFilter === 'ALL' ? groupFilteredTickets : dynamicQueueTickets;
+  const openQueueTickets = sourceTickets.filter(
+    (t) => t.status !== 'CLOSED'
   );
 
   // Filter tickets for "My Queue" (assigned to current user and not closed)
@@ -557,16 +593,27 @@ export const AdminTicketsQueue: React.FC = () => {
 
     // Transform into an array and sort alphabetically by group name
     return Object.entries(tree)
-      .map(([groupName, data]) => ({
-        groupName,
-        totalCount: data.totalCount,
-        types: Object.entries(data.types).map(([typeName, count]) => ({
-          typeName,
-          count
-        })).sort((a, b) => a.typeName.localeCompare(b.typeName))
-      }))
-      .sort((a, b) => a.groupName.localeCompare(b.groupName));
-  }, [tickets]);
+      .map(([groupName, data]) => {
+        const foundGroup = assignmentGroups?.find((g: any) => 
+          g.id?.toUpperCase() === groupName || 
+          g.name?.toUpperCase() === groupName
+        );
+        const displayGroupName = foundGroup 
+          ? (foundGroup.name || foundGroup.serviceGroup?.name || foundGroup.label || groupName) 
+          : groupName;
+
+        return {
+          groupName,
+          displayGroupName,
+          totalCount: data.totalCount,
+          types: Object.entries(data.types).map(([typeName, count]) => ({
+            typeName,
+            count
+          })).sort((a, b) => a.typeName.localeCompare(b.typeName))
+        };
+      })
+      .sort((a, b) => a.displayGroupName.localeCompare(b.displayGroupName));
+  }, [tickets, assignmentGroups]);
 
   const displayedTickets =
     workspace === 'openQueue' ? openQueueTickets :
@@ -711,7 +758,7 @@ export const AdminTicketsQueue: React.FC = () => {
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-70">
                               <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
                             </svg>
-                            <span className="uppercase">{group.groupName}</span>
+                            <span className="uppercase">{group.displayGroupName}</span>
                           </div>
                           <span className="text-[9px] font-black bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 px-1.5 py-0.5 rounded-full font-mono">
                             {group.totalCount}
@@ -925,7 +972,7 @@ export const AdminTicketsQueue: React.FC = () => {
           </PermissionGate>
         </div>
 
-        {isLoadingTickets ? (
+        {isLoadingTickets || (selectedGroupFilter !== 'ALL' && isLoadingDynamic) ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-20 bg-white/5 rounded-2xl animate-pulse border border-white/10" />
@@ -938,18 +985,16 @@ export const AdminTicketsQueue: React.FC = () => {
         ) : workspace === 'myQueue' ? (
           <div className="space-y-4">
             {myQueueTickets.length === 0 ? (
-              <div className="text-center text-slate-500 uppercase font-mono py-8">
-                No active tickets inside this channel
-              </div>
+              <div className="p-8 text-center text-gray-400">No tickets found in this queue</div>
             ) : (
               myQueueTickets.map((t) => (
                 <div
                   key={t.id}
-                  onClick={() => setSelectedTicket(t)}
+                  onClick={() => navigate(`/tickets/${t.id}`)}
                   className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/60 rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)] dark:shadow-none transition-all duration-300 mb-5 flex flex-col gap-3 relative overflow-hidden cursor-pointer group"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold font-mono text-slate-400 tracking-wider">#{t.id.slice(0, 8).toUpperCase()}</span>
+                    <span className="text-xs font-bold font-mono text-slate-400 tracking-wider">#{ (t as any).ticketSeq || t.id.slice(0, 8).toUpperCase()}</span>
                     <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border uppercase ${t.status === 'OPEN' ? 'bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-100 dark:border-sky-500/20' : t.status === 'IN_PROGRESS' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/20' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-700'}`}>
                       {t.status}
                     </span>
@@ -967,12 +1012,12 @@ export const AdminTicketsQueue: React.FC = () => {
                     {t.ticketType && (
                       <div><span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">TYPE:</span> <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t.ticketType}</span></div>
                     )}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">SLA DEADLINE:</span>
-                      <span className="text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-100/50 dark:border-rose-500/20 font-mono text-xs font-semibold inline-flex items-center">
-                        {new Date(t.slaDeadline).toLocaleString()}
-                      </span>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">SLA DEADLINE:</span>
+                    <span className="text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-100/50 dark:border-rose-500/20 font-mono text-xs font-semibold inline-flex items-center">
+                      {t.slaDeadline ? new Date(t.slaDeadline).toLocaleString() : 'N/A'}
+                    </span>
+                  </div>
                   </div>
                 </div>
               ))
@@ -981,20 +1026,18 @@ export const AdminTicketsQueue: React.FC = () => {
         ) : workspace === 'closedArchive' ? (
           <div className="space-y-4">
             {closedArchiveTickets.length === 0 ? (
-              <div className="text-center text-slate-500 uppercase font-mono py-8">
-                No closed tickets in historical archive
-              </div>
+              <div className="p-8 text-center text-gray-400">No tickets found in this queue</div>
             ) : (
               closedArchiveTickets.map((t) => {
                 const isBreached = t.isSlaBreached ?? (t.closedAt ? new Date(t.closedAt) > new Date(t.slaDeadline) : new Date() > new Date(t.slaDeadline));
                 return (
                   <div
                     key={t.id}
-                    onClick={() => setSelectedTicket(t)}
+                    onClick={() => navigate(`/tickets/${t.id}`)}
                     className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/60 rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)] dark:shadow-none transition-all duration-300 mb-5 flex flex-col gap-3 relative overflow-hidden cursor-pointer group"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-xs font-bold font-mono text-slate-400 tracking-wider">#{t.id.slice(0, 8).toUpperCase()}</span>
+                      <span className="text-xs font-bold font-mono text-slate-400 tracking-wider">#{ (t as any).ticketSeq || t.id.slice(0, 8).toUpperCase()}</span>
                       <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border uppercase ${t.status === 'OPEN' ? 'bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-100 dark:border-sky-500/20' : t.status === 'IN_PROGRESS' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/20' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-700'}`}>
                         {t.status}
                       </span>
@@ -1023,20 +1066,17 @@ export const AdminTicketsQueue: React.FC = () => {
             )}
           </div>
         ) : displayedTickets.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-slate-500 py-12">
-            <div className="text-sm font-mono tracking-widest uppercase mb-2">No active tickets inside this channel</div>
-            <div className="text-xs text-slate-600 font-mono uppercase">Queue status clears successfully</div>
-          </div>
+          <div className="p-8 text-center text-gray-400">No tickets found in this queue</div>
         ) : (
           <div className="space-y-4">
             {displayedTickets.map((t) => (
               <div
                 key={t.id}
-                onClick={() => setSelectedTicket(t)}
+                onClick={() => navigate(`/tickets/${t.id}`)}
                 className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/60 rounded-2xl p-6 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.03)] dark:shadow-none transition-all duration-300 mb-5 flex flex-col gap-3 relative overflow-hidden cursor-pointer group"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-bold font-mono text-slate-400 tracking-wider">#{t.id.slice(0, 8).toUpperCase()}</span>
+                  <span className="text-xs font-bold font-mono text-slate-400 tracking-wider">#{ (t as any).ticketSeq || t.id.slice(0, 8).toUpperCase()}</span>
                   <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border uppercase ${t.status === 'OPEN' ? 'bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-100 dark:border-sky-500/20' : t.status === 'IN_PROGRESS' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/20' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-700'}`}>
                     {t.status}
                   </span>
@@ -1057,7 +1097,7 @@ export const AdminTicketsQueue: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-slate-500 dark:text-slate-400/70 tracking-wider uppercase">SLA DEADLINE:</span>
                     <span className="text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-100/50 dark:border-rose-500/20 font-mono text-xs font-semibold inline-flex items-center">
-                      {new Date(t.slaDeadline).toLocaleString()}
+                      {t.slaDeadline ? new Date(t.slaDeadline).toLocaleString() : 'N/A'}
                     </span>
                   </div>
                 </div>

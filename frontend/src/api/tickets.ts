@@ -59,9 +59,11 @@ export interface Ticket {
   updatedAt: string;
 }
 
-export const fetchAllTicketsAdmin = async (): Promise<Ticket[]> => {
-  const { data } = await api.get('/tickets/admin/all');
-  return data;
+export const fetchAllTicketsAdmin = async (params?: any): Promise<Ticket[]> => {
+  const response = await api.get('/tickets/admin/all', { params });
+  console.log("Fetched Tickets API Response:", response);
+  const data = response.data;
+  return Array.isArray(data) ? data : (data?.tickets || data?.data || []);
 };
 
 export const createTicketAdmin = async (ticket: {
