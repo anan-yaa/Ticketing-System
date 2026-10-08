@@ -1,7 +1,8 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { VectorService } from './vector.service';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { embedText } from './gemini-embedding';
 
 @Injectable()
 export class CoPilotService {
@@ -24,68 +25,6 @@ export class CoPilotService {
 
 
   /**
-   * Generates a 1536-dimensional query embedding vector.
-   * Priority 1: Gemini text-embedding-004 (real semantic embedding, padded to 1536).
-   * Priority 2: Deterministic SHA-256 pseudo-embedding (local dev fallback).
-   */
-  private async generateQueryVector1536(seedText: string): Promise<number[]> {
-    // ── Priority 1: Gemini text-embedding-004 ───────────────────────────────────
-    if (this.genAI) {
-      try {
-        const embeddingModel = this.genAI.getGenerativeModel({ model: 'text-embedding-004' });
-        const result: any = await Promise.race([
-          embeddingModel.embedContent(seedText),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Embedding timeout after 8s')), 8000)
-          ),
-        ]);
-
-        const rawVector: number[] = result.embedding.values;
-        if (rawVector && rawVector.length > 0) {
-          const target = 1536;
-          const padded: number[] = new Array(target);
-          for (let i = 0; i < target; i++) padded[i] = rawVector[i % rawVector.length];
-
-          let sumSq = padded.reduce((acc, v) => acc + v * v, 0);
-          const mag = Math.sqrt(sumSq) || 1;
-          for (let i = 0; i < target; i++) padded[i] = padded[i] / mag;
-
-          this.logger.debug(`[RAG] Gemini embedding produced ${rawVector.length}-dim vector, padded to ${target}.`);
-          return padded;
-        }
-      } catch (embErr: any) {
-        this.logger.warn(`[RAG] Gemini embedding failed (${embErr.message}). Using deterministic fallback.`);
-      }
-    }
-
-    // ── Priority 2: Deterministic SHA-256 pseudo-embedding ──────────────────────
-    this.logger.debug('[RAG] Using deterministic SHA-256 pseudo-embedding for query vector.');
-    const dimensions = 1536;
-    const vector: number[] = new Array(dimensions);
-
-    let hash = 0;
-    for (let i = 0; i < seedText.length; i++) {
-      hash = (hash << 5) - hash + seedText.charCodeAt(i);
-      hash |= 0;
-    }
-
-    let sumSquares = 0;
-    for (let i = 0; i < dimensions; i++) {
-      hash = (hash * 1664525 + 1013904223) | 0;
-      const val = (hash / 2147483648.0);
-      vector[i] = val;
-      sumSquares += val * val;
-    }
-
-    const magnitude = Math.sqrt(sumSquares) || 1.0;
-    for (let i = 0; i < dimensions; i++) {
-      vector[i] = Number((vector[i] / magnitude).toFixed(6));
-    }
-
-    return vector;
-  }
-
-  /**
    * Intercepts active ticket details, calculates search vectors, pulls matching context from PostgreSQL,
    * and calls Google Gemini to output exactly 3 actionable technical steps.
    */
@@ -106,32 +45,45 @@ export class CoPilotService {
       throw new NotFoundException(`Active ticket with ID [${ticketId}] was not found.`);
     }
 
+    // 2. Generate 1536-dimensional query embedding vector with the same model used for indexing.
+    // If embedding fails, skip retrieval rather than searching with a meaningless vector.
+    const querySeedString = `Subject: ${ticket.title || ''} \n Description: ${ticket.description || ''}`;
+    let matches: any[] = [];
     try {
-      // 2. Generate 1536-dimensional query embedding vector (Gemini or deterministic fallback)
-      const querySeedString = `Subject: ${ticket.title || ''} \n Description: ${ticket.description || ''}`;
-      const queryVector = await this.generateQueryVector1536(querySeedString);
+      const queryVector = await embedText(querySeedString, 'RETRIEVAL_QUERY');
 
       // 3. Execute semantic search query in pgvector
-      const matches = await this.vectorService.querySimilarDocuments(
+      matches = await this.vectorService.querySimilarDocuments(
         queryVector,
         ticket.ticketType || '',
         3,
       );
+    } catch (embErr: any) {
+      this.logger.error(`[RAG] Query embedding failed (${embErr.message}). Generating without historical context.`);
+    }
 
-      // 4. Compute normalized confidence score
-      let confidenceScore = 0.70;
-      if (matches && matches.length > 0) {
-        const totalScore = matches.reduce((acc, match) => acc + (Number(match.score) || 0), 0);
-        const avgRawScore = totalScore / matches.length;
+    // 4. Compute normalized confidence score
+    let confidenceScore = 0.70;
+    if (matches && matches.length > 0) {
+      const totalScore = matches.reduce((acc, match) => acc + (Number(match.score) || 0), 0);
+      const avgRawScore = totalScore / matches.length;
 
-        if (avgRawScore > 0) {
-          const scaled = avgRawScore < 0.60
-            ? 0.70 + Math.min(0.28, avgRawScore * 3.5)
-            : Math.min(0.99, avgRawScore);
-          confidenceScore = Number(scaled.toFixed(4));
-        }
+      if (avgRawScore > 0) {
+        const scaled = avgRawScore < 0.60
+          ? 0.70 + Math.min(0.28, avgRawScore * 3.5)
+          : Math.min(0.99, avgRawScore);
+        confidenceScore = Number(scaled.toFixed(4));
       }
+    }
 
+    const similarTickets = matches.map(m => ({
+      ticketId: m.id,
+      ticketSeq: m.metadata?.ticketSeq ?? null,
+      title: m.metadata?.title ?? '',
+      score: Number(Number(m.score || 0).toFixed(4)),
+    }));
+
+    try {
       // 5. Construct historical reference cases
       const historicalMatchesJoined = (matches || [])
         .map((m, idx) => `Case #${idx + 1}: ${m.textPayload ? m.textPayload.replace(/^\[.*?\]\s*/g, '').trim() : 'No resolution text provided.'}`)
@@ -158,8 +110,16 @@ Rules:
 
       // 7. Call Google Gemini SDK with Timeout
       if (this.genAI) {
-        const model = this.genAI.getGenerativeModel({ model: this.modelName });
-        
+        const model = this.genAI.getGenerativeModel({
+          model: this.modelName,
+          generationConfig: {
+            temperature: 0.3,
+            topP: 0.9,
+            topK: 40,
+            maxOutputTokens: 1024,
+          },
+        });
+
         const result: any = await Promise.race([
           model.generateContent(systemPrompt),
           new Promise((_, reject) =>
@@ -189,20 +149,30 @@ Rules:
       return {
         confidenceScore,
         suggestions,
-        source: "AI Generative Model"
+        source: 'AI_GENERATED',
+        similarTickets,
       };
 
     } catch (error) {
-      this.logger.error(`Error or timeout in LLM/embedding call for ticket [${ticketId}]:`, error);
-      return {
-        confidenceScore: 0.80,
-        suggestions: [
-          "Review device logs for excessive I/O or debug mode status.",
-          "Verify configuration files and service parameters.",
-          "Clear temporary cache/log directories and restart affected services."
-        ],
-        source: "Fallback Rule Matrix"
-      };
+      this.logger.error(`Error or timeout in LLM call for ticket [${ticketId}]:`, error);
+
+      // Retrieval-only fallback: show the real resolutions of the matched past tickets
+      const pastResolutions = matches
+        .filter(m => m.textPayload && m.textPayload.trim().length > 0)
+        .map(m => m.textPayload.trim());
+
+      if (pastResolutions.length > 0) {
+        return {
+          confidenceScore,
+          suggestions: pastResolutions,
+          source: 'SIMILAR_TICKETS',
+          similarTickets,
+        };
+      }
+
+      throw new ServiceUnavailableException(
+        'AI suggestions are unavailable right now and no similar resolved tickets were found.',
+      );
     }
   }
 }

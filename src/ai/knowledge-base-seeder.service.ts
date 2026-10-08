@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { VectorService } from './vector.service';
 import { TicketStatus } from '@prisma/client';
-import * as crypto from 'crypto';
+import { embedText } from './gemini-embedding';
 
 export interface IngestionResult {
   totalScanned: number;
@@ -76,13 +76,16 @@ export class KnowledgeBaseSeederService {
         const ticketRow: any = ticket;
         const ticketTypeStr = ticketRow.ticketType || 'GENERAL';
         const categoryStr = ticketRow.category || 'Uncategorized';
-        const resolutionStr = ticketRow.resolutionSummary || 'Resolved and closed by human agent.';
+        const resolutionStr = ticketRow.resolutionSummary && ticketRow.resolutionSummary.trim();
+        if (!resolutionStr) {
+          throw new Error('Ticket has no resolutionSummary; nothing useful to index.');
+        }
 
-        // Stringify rich text layout block
-        const textPayload = `Ticket Type: ${ticketTypeStr} | Category: ${categoryStr} | Subject: ${ticketRow.title} \n Description: ${ticketRow.description} \n Verified Human Resolution: ${resolutionStr}`;
+        // Same context format as TicketsService.handleRealTimeTicketIngestion
+        const textPayload = `Title: ${ticketRow.title} | Category: ${categoryStr} | Description: ${ticketRow.description} | Resolution: ${resolutionStr}`;
 
-        // Generate embedding vector array
-        const vector = await this.generateEmbeddingVector(textPayload);
+        // Generate embedding vector array (throws on failure; ticket stays unindexed)
+        const vector = await embedText(textPayload, 'RETRIEVAL_DOCUMENT');
 
         // Attach ticketType and category keys as searchable vector metadata
         const metadata = {
@@ -94,12 +97,11 @@ export class KnowledgeBaseSeederService {
           title: ticketRow.title,
         };
 
-        // Call vector client connection module instance wrapper to insert payload
+        // Store only the vector; resolutionSummary is left untouched
         await this.vectorService.upsertDocumentVector(
           ticketRow.id,
           vector,
           metadata,
-          textPayload,
         );
 
         // Once successfully ingested, update ticket row flag and execution timestamp
@@ -128,78 +130,5 @@ export class KnowledgeBaseSeederService {
     );
 
     return result;
-  }
-
-  /**
-   * Generates a numerical vector representation for the given text payload.
-   * Uses external embedding endpoint if configured, or deterministic local vector fallback.
-   */
-  private async generateEmbeddingVector(text: string): Promise<number[]> {
-    const embeddingApiUrl = process.env.EMBEDDING_API_URL;
-    const apiKey = process.env.EMBEDDING_API_KEY || process.env.OPENAI_API_KEY;
-
-    if (embeddingApiUrl) {
-      try {
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        if (apiKey) {
-          headers['Authorization'] = `Bearer ${apiKey}`;
-        }
-
-        const response = await fetch(embeddingApiUrl, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            input: text,
-            model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data?.data?.[0]?.embedding && Array.isArray(data.data[0].embedding)) {
-            return data.data[0].embedding;
-          } else if (Array.isArray(data?.embedding)) {
-            return data.embedding;
-          }
-        }
-      } catch (err: any) {
-        this.logger.warn(`External embedding endpoint failed (${err.message}). Falling back to local deterministic embedding generator.`);
-      }
-    }
-
-    // Deterministic pseudo-embedding generation (1536 dimensions) for local resilience and testing
-    return this.createDeterministicVector(text, 1536);
-  }
-
-  /**
-   * Creates a deterministic normalized numerical vector using SHA-256 hash hashing.
-   */
-  private createDeterministicVector(input: string, dimensions = 1536): number[] {
-    const vector: number[] = new Array(dimensions);
-    let hash = crypto.createHash('sha256').update(input).digest();
-    
-    // Fill dimensions using cyclical hash slices
-    for (let i = 0; i < dimensions; i++) {
-      const byteIndex = i % hash.length;
-      if (byteIndex === 0 && i > 0) {
-        hash = crypto.createHash('sha256').update(hash).digest();
-      }
-      // Map byte (0-255) to float between -1.0 and 1.0
-      vector[i] = (hash[byteIndex] / 127.5) - 1.0;
-    }
-
-    // Normalize L2 norm
-    let sumSquares = 0;
-    for (let i = 0; i < dimensions; i++) {
-      sumSquares += vector[i] * vector[i];
-    }
-    const magnitude = Math.sqrt(sumSquares) || 1;
-    for (let i = 0; i < dimensions; i++) {
-      vector[i] = vector[i] / magnitude;
-    }
-
-    return vector;
   }
 }

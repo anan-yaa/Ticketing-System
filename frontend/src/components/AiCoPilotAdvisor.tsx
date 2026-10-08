@@ -24,9 +24,19 @@ export interface AiCoPilotAdvisorProps {
   className?: string;
 }
 
+interface SimilarTicket {
+  ticketId: string;
+  ticketSeq: number | null;
+  title: string;
+  score: number;
+}
+
 interface CoPilotResponse {
   suggestedSteps: string[];
   confidenceScore: number;
+  /** 'AI_GENERATED' = Gemini wrote the steps; 'SIMILAR_TICKETS' = generation failed, showing past resolutions */
+  source: 'AI_GENERATED' | 'SIMILAR_TICKETS';
+  similarTickets: SimilarTicket[];
 }
 
 /**
@@ -61,6 +71,8 @@ export const AiCoPilotAdvisor: React.FC<AiCoPilotAdvisorProps> = ({
         setData({
           suggestedSteps: rawSteps,
           confidenceScore: response.data.confidenceScore ?? 0.8,
+          source: response.data.source === 'SIMILAR_TICKETS' ? 'SIMILAR_TICKETS' : 'AI_GENERATED',
+          similarTickets: Array.isArray(response.data.similarTickets) ? response.data.similarTickets : [],
         });
       } else {
         throw new Error('Malformed structural payload returned by Co-Pilot endpoint.');
@@ -93,7 +105,7 @@ export const AiCoPilotAdvisor: React.FC<AiCoPilotAdvisorProps> = ({
     if (!data || !data.suggestedSteps.length) return;
 
     const concatenatedText = data.suggestedSteps
-      .map((step, idx) => `Step ${idx + 1}: ${step}`)
+      .map((step, idx) => `${getStepLabel(idx)}: ${step}`)
       .join('\n\n');
 
     // Execute callback if passed by parent workspace page
@@ -109,6 +121,15 @@ export const AiCoPilotAdvisor: React.FC<AiCoPilotAdvisorProps> = ({
       setAppliedSuccess(false);
     }, 3000);
   };
+
+  const isRetrievalOnly = data?.source === 'SIMILAR_TICKETS';
+
+  // Helper: Label a card as an AI step or as the past ticket it came from
+  function getStepLabel(idx: number): string {
+    if (!isRetrievalOnly) return `Step ${idx + 1}`;
+    const ref = data?.similarTickets[idx];
+    return ref?.ticketSeq != null ? `Past Ticket #${ref.ticketSeq}` : `Past Ticket ${idx + 1}`;
+  }
 
   // Helper: Format confidence score to badge color styling
   const getConfidenceBadgeStyles = (score: number) => {
@@ -234,7 +255,11 @@ export const AiCoPilotAdvisor: React.FC<AiCoPilotAdvisorProps> = ({
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
               <div className="flex items-center space-x-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">
                 <Zap className="w-3.5 h-3.5 text-cyan-500" />
-                <span>Verified Plan (`3 Steps`)</span>
+                <span>
+                  {isRetrievalOnly
+                    ? `Similar Past Resolutions (${data.suggestedSteps.length})`
+                    : `Verified Plan (${data.suggestedSteps.length} Steps)`}
+                </span>
               </div>
               <div
                 className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full border text-xs font-mono font-bold tracking-tight shadow-sm ${
@@ -250,6 +275,16 @@ export const AiCoPilotAdvisor: React.FC<AiCoPilotAdvisorProps> = ({
               </div>
             </div>
 
+            {/* Retrieval-only notice: generation failed, showing real past resolutions */}
+            {isRetrievalOnly && (
+              <div className="flex items-start space-x-2 rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3 py-2.5">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                  AI generation is unavailable right now. Showing how the most similar past tickets were resolved. Adapt them to this ticket.
+                </p>
+              </div>
+            )}
+
             {/* Step-by-Step Cards List */}
             <div className="space-y-3 overflow-y-auto max-h-[460px] pr-1 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
               {data.suggestedSteps.map((step, idx) => (
@@ -259,7 +294,7 @@ export const AiCoPilotAdvisor: React.FC<AiCoPilotAdvisorProps> = ({
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold tracking-wide uppercase bg-cyan-500/10 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300">
-                      Step {idx + 1}
+                      {getStepLabel(idx)}
                     </span>
 
                     {/* Individual Copy Button */}
@@ -276,6 +311,11 @@ export const AiCoPilotAdvisor: React.FC<AiCoPilotAdvisorProps> = ({
                     </button>
                   </div>
 
+                  {isRetrievalOnly && data.similarTickets[idx]?.title && (
+                    <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1 truncate">
+                      {data.similarTickets[idx].title}
+                    </p>
+                  )}
                   <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-sans leading-relaxed">
                     {step}
                   </p>
@@ -308,7 +348,9 @@ export const AiCoPilotAdvisor: React.FC<AiCoPilotAdvisorProps> = ({
                 )}
               </button>
               <p className="text-[10px] text-center text-slate-400 mt-2">
-                Clicking applies all 3 verified steps directly to your technician note workspace.
+                {isRetrievalOnly
+                  ? 'Clicking applies these past resolutions to your technician note workspace.'
+                  : `Clicking applies all ${data.suggestedSteps.length} verified steps directly to your technician note workspace.`}
               </p>
             </div>
           </>

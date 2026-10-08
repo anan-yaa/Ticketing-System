@@ -7,7 +7,7 @@ import { SlaService } from './sla.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { VectorService } from '../ai/vector.service';
 import { AiClassificationService } from '../ai/ai-classification.service';
-import * as crypto from 'crypto';
+import { embedText } from '../ai/gemini-embedding';
 
 @Injectable()
 export class TicketsService {
@@ -1027,7 +1027,8 @@ export class TicketsService {
       // 2. Compute fresh 1536-dimensional float vector array from the combined string:
       // "Subject: ${title} \n Description: ${description} \n Solution: ${resolutionSummary}"
       const contextText = `Title: ${ticket.title} | Category: ${ticket.category} | Description: ${ticket.description} | Resolution: ${resolutionStr}`;
-      const vector = await this.generateEmbeddingVector(contextText);
+      // Throws on failure, so the catch below leaves the ticket unindexed for a later retry
+      const vector = await embedText(contextText, 'RETRIEVAL_DOCUMENT');
 
       // 3. Execute the raw prisma.$executeRaw update query statement to stream this new embedding string
       // into the database 'embedding' column for that ticket record, flipping 'isIndexedToVectorDb' to true
@@ -1063,96 +1064,4 @@ export class TicketsService {
     }
   }
 
-  private async generateEmbeddingVector(text: string): Promise<number[]> {
-    // ── Priority 1: Google Gemini text-embedding-004 (native, 768-dim) ─────────
-    // We pad to 1536 to match our pgvector schema dimension.
-    const geminiApiKey = process.env.GEMINI_API_KEY;
-    if (geminiApiKey && geminiApiKey.trim().length > 0 && geminiApiKey !== 'your-gemini-api-key') {
-      try {
-        const { GoogleGenerativeAI } = await import('@google/generative-ai');
-        const genAI = new GoogleGenerativeAI(geminiApiKey.trim());
-        const embeddingModel = genAI.getGenerativeModel({ model: 'text-embedding-004' });
-
-        const result = await Promise.race([
-          embeddingModel.embedContent(text),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Gemini embedding API timeout after 8s')), 8000)
-          ),
-        ]) as any;
-
-        const rawVector: number[] = result.embedding.values;
-
-        if (rawVector && rawVector.length > 0) {
-          // Pad/repeat to exactly 1536 dimensions to match pgvector schema
-          const target = 1536;
-          const padded: number[] = new Array(target);
-          for (let i = 0; i < target; i++) {
-            padded[i] = rawVector[i % rawVector.length];
-          }
-          // Re-normalize after padding
-          let sumSq = padded.reduce((acc, v) => acc + v * v, 0);
-          const mag = Math.sqrt(sumSq) || 1;
-          for (let i = 0; i < target; i++) padded[i] = padded[i] / mag;
-
-          this.logger.debug(`[Embedding] Gemini text-embedding-004 produced ${rawVector.length}-dim vector, padded to ${target}.`);
-          return padded;
-        }
-      } catch (geminiErr: any) {
-        this.logger.warn(`[Embedding] Gemini text-embedding-004 failed (${geminiErr.message}). Trying fallback.`);
-      }
-    }
-
-    // ── Priority 2: External embedding API endpoint (OpenAI-compatible) ─────────
-    const embeddingApiUrl = process.env.EMBEDDING_API_URL;
-    const apiKey = process.env.EMBEDDING_API_KEY || process.env.OPENAI_API_KEY;
-    if (embeddingApiUrl) {
-      try {
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-
-        const response = await fetch(embeddingApiUrl, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            input: text,
-            model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data?.data?.[0]?.embedding && Array.isArray(data.data[0].embedding)) {
-            return data.data[0].embedding;
-          } else if (Array.isArray(data?.embedding)) {
-            return data.embedding;
-          }
-        }
-      } catch (err: any) {
-        this.logger.warn(`[Embedding] External endpoint failed (${err.message}). Using deterministic fallback.`);
-      }
-    }
-
-    // ── Priority 3: Deterministic SHA-256 pseudo-embedding (1536 dims) ──────────
-    // Used for local dev / when no API key is available. Cosine similarity still
-    // works correctly as long as the same input always produces the same vector.
-    this.logger.debug('[Embedding] Using deterministic SHA-256 pseudo-embedding as final fallback.');
-    const dimensions = 1536;
-    const vector: number[] = new Array(dimensions);
-    let hash = crypto.createHash('sha256').update(text).digest();
-
-    for (let i = 0; i < dimensions; i++) {
-      const byteIndex = i % hash.length;
-      if (byteIndex === 0 && i > 0) {
-        hash = crypto.createHash('sha256').update(hash).digest();
-      }
-      vector[i] = (hash[byteIndex] / 127.5) - 1.0;
-    }
-
-    let sumSquares = 0;
-    for (let i = 0; i < dimensions; i++) sumSquares += vector[i] * vector[i];
-    const magnitude = Math.sqrt(sumSquares) || 1;
-    for (let i = 0; i < dimensions; i++) vector[i] = vector[i] / magnitude;
-
-    return vector;
-  }
 }

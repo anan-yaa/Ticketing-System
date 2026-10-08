@@ -42,7 +42,7 @@ const FALLBACK_CLASSIFICATION: TicketClassification = {
 export class AiClassificationService {
   private readonly logger = new Logger(AiClassificationService.name);
   private genAI: GoogleGenerativeAI | null = null;
-  private readonly modelName = 'gemini-2.0-flash';
+  private readonly modelName = 'gemini-3.5-flash';
 
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -92,7 +92,15 @@ Ticket Description: ${description}
 Respond with ONLY the JSON object.`;
 
     try {
-      const model = this.genAI.getGenerativeModel({ model: this.modelName });
+      const model = this.genAI.getGenerativeModel({
+        model: this.modelName,
+        generationConfig: {
+          temperature: 0.1,
+          topP: 0.8,
+          topK: 20,
+          maxOutputTokens: 256,
+        },
+      });
 
       const result: any = await Promise.race([
         model.generateContent(prompt),
